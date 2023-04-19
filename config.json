@@ -1,0 +1,11 @@
+{
+  "dev": {},
+  "ganache": {},
+  "main": {},
+  "mumbai": {
+    "Demo": "0xDf459f1ce2CC77DAeC3f7DfDbBEf55f6022dCF26"
+  },
+  "localhost": {
+    "Demo": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  }
+}
