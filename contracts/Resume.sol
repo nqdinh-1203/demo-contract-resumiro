@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "../interfaces/IUser.sol";
+
+// import "./abstract-contract/AccessControl.sol";
+
 contract Resume {
     struct AppResume {
         string data;
@@ -9,10 +13,13 @@ contract Resume {
         bool exist;
     }
 
+    //=============================ATTRIBUTES==========================================
     mapping(uint => AppResume) public resumes;
     mapping(address => mapping(uint => bool)) public resumeApprovals;
     mapping(uint => address) public candidateOwnResume;
+    IUser public user;
 
+    //=============================EVENTS==========================================
     event AddResume(
         uint id,
         string data,
@@ -41,20 +48,43 @@ contract Resume {
         bool isApproved
     );
 
+    //=============================ERRORS==========================================
+    error NotExistedResume(uint id);
+    error AlreadyApprovedResume(uint id);
+
+    error NotOwnedResume(address candidate_address, uint id);
+
+    error NotRecruiter(address user_address);
+
+    error NotApprovedRecruiter(address recruiter_address, uint id);
+    error AlreadyApprovedRecruiter(address recruiter_address, uint id);
+
+    //=============================METHODS==========================================
+
+    //======================RESUMES==========================
+    function isOwnerOfResume(
+        address _candidateAddress,
+        uint _id
+    ) public view returns (bool) {
+        return candidateOwnResume[_id] == _candidateAddress;
+    }
+
     function getResume(uint _id) public view returns (AppResume memory) {
         return resumes[_id];
     }
 
-    // only candidate -> resumiro
-    // param _candidateAddress must equal msg.sender -> resumiro
-    // resume must not existed
+    // only candidate -> later⏳
+    // param _candidateAddress must equal msg.sender -> later⏳
+    // resume must not existed -> done✅
     function addResume(
         uint _id,
         string memory _data,
         uint _createAt,
         address _candidateAddress
     ) public virtual {
-        require(!resumes[_id].exist, "Resume: resume id already existed");
+        if (resumes[_id].exist) {
+            revert AlreadyApprovedResume({id: _id});
+        }
 
         resumes[_id].data = _data;
         resumes[_id].createAt = _createAt;
@@ -75,15 +105,20 @@ contract Resume {
         );
     }
 
-    // only candidate -> resumiro
-    // candidate must own resume -> resumiro
-    // resume must existed
+    // only candidate -> later⏳
+    // resume must existed -> done✅
+    // caller must own resume -> later⏳
     function updateResume(
         uint _id,
         string memory _data,
         uint256 _updateAt
     ) public virtual {
-        require(resumes[_id].exist, "Resume: resume id not exist");
+        if (!resumes[_id].exist) {
+            revert NotExistedResume({id: _id});
+        }
+        // if (isOwnerOfResume(msg.sender, _id)) {
+        //     revert NotOwnedResume({id: _id, candidate_address: msg.sender});
+        // }
 
         resumes[_id].data = _data;
         resumes[_id].updateAt = _updateAt;
@@ -100,11 +135,17 @@ contract Resume {
         );
     }
 
-    // only candidate -> resumiro
-    // candidate must own resume -> resumiro
-    // resume must existed
+    // only candidate -> later⏳
+    // resume must existed -> done✅
+    // caller must own resume -> later⏳
     function deleteResume(uint _id) public virtual {
-        require(resumes[_id].exist, "Resume: resume id not exist");
+        if (!resumes[_id].exist) {
+            revert NotExistedResume({id: _id});
+        }
+
+        // if (isOwnerOfResume(msg.sender, _id)) {
+        //     revert NotOwnedResume({id: _id, candidate_address: msg.sender});
+        // }
 
         AppResume memory resume = getResume(_id);
         address ownerAddress = candidateOwnResume[_id];
@@ -120,6 +161,7 @@ contract Resume {
         );
     }
 
+    //======================RESUME-RECRUITER==========================
     function isExistedResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
@@ -127,23 +169,36 @@ contract Resume {
         return resumeApprovals[_recruiterAddress][_resumeId];
     }
 
-    // only candidate -> resumiro
-    // candidate must own resume -> resumiro
-    // just aprrove for recruiter -> resumiro
-    // resume must existed
-    // recruiter have not been approved yet
+    // only candidate role -> later⏳
+    // resume must existed -> done✅
+    // candidate must own resume -> later⏳
+    // just aprrove for recruiter -> done✅
+    // recruiter have not been approved yet -> done✅
     function connectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
     ) public virtual {
-        require(
-            resumes[_resumeId].exist,
-            "Approval resume: resume id not exist"
-        );
-        require(
-            !isExistedResumeRecruiter(_recruiterAddress, _resumeId),
-            "Approval resume: Recruiter already approved"
-        );
+        if (!resumes[_resumeId].exist) {
+            revert NotExistedResume({id: _resumeId});
+        }
+        // if (isOwnerOfResume(msg.sender, _resumeId)) {
+        //     revert NotOwnedResume({
+        //         id: _resumeId,
+        //         candidate_address: msg.sender
+        //     });
+        // }
+        if (
+            !(user.isExisted(_recruiterAddress) &&
+                user.hasType(_recruiterAddress, 1))
+        ) {
+            revert NotRecruiter({user_address: _recruiterAddress});
+        }
+        if (resumeApprovals[_recruiterAddress][_resumeId]) {
+            revert AlreadyApprovedRecruiter({
+                recruiter_address: _recruiterAddress,
+                id: _resumeId
+            });
+        }
 
         resumeApprovals[_recruiterAddress][_resumeId] = true;
         address ownerAddress = candidateOwnResume[_resumeId];
@@ -156,23 +211,36 @@ contract Resume {
         );
     }
 
-    // only candidate -> resumiro
-    // candidate must own resume -> resumiro
-    // just aprrove for recruiter -> resumiro
-    // resume must existed
-    // recruiter have been approved
+    // only candidate -> later⏳
+    // resume must existed -> done✅
+    // candidate must own resume -> later⏳
+    // just disaprrove for recruiter -> done✅
+    // recruiter have been approved -> done✅
     function disconnectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
     ) public virtual {
-        require(
-            resumes[_resumeId].exist,
-            "Dispproval resume: resume id not exist"
-        );
-        require(
-            isExistedResumeRecruiter(_recruiterAddress, _resumeId),
-            "Dispproval resume: Recruiter not been approved"
-        );
+        if (!resumes[_resumeId].exist) {
+            revert NotExistedResume({id: _resumeId});
+        }
+        // if (isOwnerOfResume(msg.sender, _resumeId)) {
+        //     revert NotOwnedResume({
+        //         id: _resumeId,
+        //         candidate_address: msg.sender
+        //     });
+        // }
+        if (
+            !(user.isExisted(_recruiterAddress) &&
+                user.hasType(_recruiterAddress, 1))
+        ) {
+            revert NotRecruiter({user_address: _recruiterAddress});
+        }
+        if (!resumeApprovals[_recruiterAddress][_resumeId]) {
+            revert NotApprovedRecruiter({
+                recruiter_address: _recruiterAddress,
+                id: _resumeId
+            });
+        }
 
         resumeApprovals[_recruiterAddress][_resumeId] = false;
         address ownerAddress = candidateOwnResume[_resumeId];
@@ -183,5 +251,10 @@ contract Resume {
             _resumeId,
             resumeApprovals[_recruiterAddress][_resumeId]
         );
+    }
+
+    //======================USER CONTRACT==========================
+    function setUserInterface(address _contract) public {
+        user = IUser(_contract);
     }
 }

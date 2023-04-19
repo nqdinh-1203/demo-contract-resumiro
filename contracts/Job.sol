@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "../interfaces/ICompany.sol";
+import "../interfaces/IUser.sol";
+
 contract Job {
     struct AppJob {
         string title;
@@ -14,10 +17,14 @@ contract Job {
         bool exist;
     }
 
+    //=============================ATTRIBUTES==========================================
     mapping(uint => AppJob) public jobs;
     mapping(address => mapping(uint => bool)) public candidateApplyJob;
     mapping(uint => address) public recruiterOwnJob;
+    ICompany public company;
+    IUser public user;
 
+    //=============================EVENTS==========================================
     event AddJob(
         uint id,
         string title,
@@ -67,22 +74,36 @@ contract Job {
         bool isApplied
     );
 
-    // modifier onlyOwnJob(uint _id) {
-    //     require(
-    //         recruiterOwnJob[_id] == msg.sender,
-    //         "Recruiter: Caller not own this job"
-    //     );
-    //     _;
-    // }
+    //=============================ERRORS==========================================
+    error NotExistedJob(uint id);
+    error AlreadyExistedJob(uint id);
+
+    error RecruiterNotInCompany(address recruiter_address, uint company_id);
+
+    error NotOwnedJob(address recruiter_address, uint id);
+
+    error NotCandidate(address user_address);
+
+    error NotAppliedCandidate(address candidate_address, uint id);
+    error AlreadyAppliedCandidate(address candidate_address, uint id);
+
+    //=============================METHODS==========================================
+    //======================JOBS==========================
+    function isOwnerOfJob(
+        address _recruiterAddress,
+        uint _jobId
+    ) public view returns (bool) {
+        return recruiterOwnJob[_jobId] == _recruiterAddress;
+    }
 
     function getJob(uint _id) public view returns (AppJob memory) {
         return jobs[_id];
     }
 
-    // only recruiter -> resumiro
-    // param _recruiterAddress must equal msg.sender -> resumiro
-    // recruiter must connected with company id -> resumiro
-    // job id must not existed
+    // only recruiter -> later⏳
+    // param _recruiterAddress must equal msg.sender -> later⏳
+    // job id must not existed -> done✅
+    // recruiter must connected with company id -> done✅
     function addJob(
         uint _id,
         string memory _title,
@@ -94,7 +115,15 @@ contract Job {
         string memory _field,
         address _recruiterAddress
     ) public virtual {
-        require(!jobs[_id].exist, "Job: id already existed");
+        if (jobs[_id].exist) {
+            revert AlreadyExistedJob({id: _id});
+        }
+        if (!company.isExistedCompanyRecruiter(_recruiterAddress, _companyId)) {
+            revert RecruiterNotInCompany({
+                recruiter_address: _recruiterAddress,
+                company_id: _companyId
+            });
+        }
 
         jobs[_id] = AppJob(
             _title,
@@ -126,10 +155,10 @@ contract Job {
         );
     }
 
-    // only recruiter -> resumiro
-    // only owner of job -> resumiro
-    // recruiter must connected with update company -> resumiro
-    // job id must existed
+    // only recruiter -> later⏳
+    // job id must existed -> done✅
+    // only owner of job -> later⏳
+    // recruiter must connected with update company -> later⏳
     function updateJob(
         uint _id,
         string memory _title,
@@ -140,7 +169,23 @@ contract Job {
         uint _salary,
         string memory _field
     ) public virtual {
-        require(jobs[_id].exist, "Job: id not existed");
+        if (!jobs[_id].exist) {
+            revert NotExistedJob({id: _id});
+        }
+
+        // if (!isOwnerOfJob(msg.sender, _id)) {
+        //     revert NotOwnedJob({
+        //         recruiter_address: msg.sender,
+        //         id: _id
+        //     });
+        // }
+
+        // if (!company.isExistedCompanyRecruiter(msg.sender, _companyId)) {
+        //     revert RecruiterNotInCompany({
+        //         recruiter_address: msg.sender,
+        //         company_id: _companyId
+        //     });
+        // }
 
         jobs[_id].title = _title;
         jobs[_id].location = _location;
@@ -167,11 +212,20 @@ contract Job {
         );
     }
 
-    // only recruiter -> resumiro
-    // only owner of job -> resumiro
-    // job id must existed
+    // only recruiter -> later⏳
+    // job id must existed -> done✅
+    // only owner of job -> later⏳
     function deleteJob(uint _id) public virtual {
-        require(jobs[_id].exist, "Job: id not existed");
+        if (!jobs[_id].exist) {
+            revert NotExistedJob({id: _id});
+        }
+
+        // if (!isOwnerOfJob(msg.sender, _id)) {
+        //     revert NotOwnedJob({
+        //         recruiter_address: msg.sender,
+        //         id: _id
+        //     });
+        // }
 
         AppJob memory job = getJob(_id);
         address ownerOfJob = recruiterOwnJob[_id];
@@ -193,14 +247,33 @@ contract Job {
         );
     }
 
-    // only candidate -> resumiro
-    // param _candidateAddress must equal msg.sender -> resumiro
-    // job must existed
-    // candidate have not applied this job yet
+    //======================JOB-CANDIDATE==========================
+    // only candidate -> later⏳
+    // param _candidateAddress must equal msg.sender -> later⏳
+    // candidate have skills to apply for the job -> later⏳ -> hard🔥
+    // job must existed -> done✅
+    // candidate have not applied this job yet -> done✅
+    // just candidate apply -> done✅
     function connectJobCandidate(
         address _candidateAddress,
         uint _jobId
     ) public virtual {
+        if (!jobs[_jobId].exist) {
+            revert NotExistedJob({id: _jobId});
+        }
+        if (candidateApplyJob[_candidateAddress][_jobId]) {
+            revert AlreadyAppliedCandidate({
+                candidate_address: _candidateAddress,
+                id: _jobId
+            });
+        }
+        if (
+            !(user.isExisted(_candidateAddress) &&
+                user.hasType(_candidateAddress, 0))
+        ) {
+            revert NotCandidate({user_address: _candidateAddress});
+        }
+
         require(jobs[_jobId].exist, "Job-Applicant: id not existed");
         require(
             !candidateApplyJob[_candidateAddress][_jobId],
@@ -214,24 +287,44 @@ contract Job {
         emit ApplyJob(_candidateAddress, owner, _jobId, isApplied);
     }
 
-    // only candidate -> resumiro
-    // param _candidateAddress must equal msg.sender -> resumiro
-    // job must existed
-    // candidate have applied this job
+    // only candidate -> later⏳
+    // param _candidateAddress must equal msg.sender -> later⏳
+    // job must existed -> done✅
+    // candidate have applied this job -> done✅
+    // just candidate disapply -> done✅
     function disconnectJobCandidate(
         address _candidateAddress,
         uint _jobId
     ) public virtual {
-        require(jobs[_jobId].exist, "Job-Applicant: id not existed");
-        require(
-            candidateApplyJob[_candidateAddress][_jobId],
-            "Job-Applicant: Candidate not applied this job"
-        );
+        if (!jobs[_jobId].exist) {
+            revert NotExistedJob({id: _jobId});
+        }
+        if (!candidateApplyJob[_candidateAddress][_jobId]) {
+            revert NotAppliedCandidate({
+                candidate_address: _candidateAddress,
+                id: _jobId
+            });
+        }
+        if (
+            !(user.isExisted(_candidateAddress) &&
+                user.hasType(_candidateAddress, 0))
+        ) {
+            revert NotCandidate({user_address: _candidateAddress});
+        }
 
         candidateApplyJob[_candidateAddress][_jobId] = false;
         address owner = recruiterOwnJob[_jobId];
         bool isApplied = candidateApplyJob[_candidateAddress][_jobId];
 
         emit DisapplyJob(_candidateAddress, owner, _jobId, isApplied);
+    }
+
+    //======================INTERFACES==========================
+    function setUserInterface(address _contract) public {
+        user = IUser(_contract);
+    }
+
+    function setCompanyInterface(address _contract) public {
+        company = ICompany(_contract);
     }
 }

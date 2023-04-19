@@ -8,9 +8,11 @@ contract Certificate {
         bool exist;
     }
 
+    //=============================ATTRIBUTES==========================================
     mapping(uint => AppCertificate) certs;
     mapping(uint => address) candidateOwnCert;
 
+    //=============================EVENTS==========================================
     event AddCertificate(
         uint id,
         string name,
@@ -30,8 +32,22 @@ contract Certificate {
         address indexed owner_address
     );
 
-    // only candidate -> resumiro
-    // param _candidateAddress must equal msg.sender -> resumiro
+    //=============================ERRORS==========================================
+    error NotExisted(uint id);
+    error AlreadyExisted(uint id);
+    error NotOwned(uint id, address candidate_address);
+
+    //=============================METHODs==========================================
+    //==================CERTIFICATES=======================
+    function isOwnerOfCertificate(
+        address _candidateAddress,
+        uint _id
+    ) public view returns (bool) {
+        return candidateOwnCert[_id] == _candidateAddress;
+    }
+
+    // only candidate -> later
+    // param _candidateAddress must equal msg.sender -> later
     // id must not existed
     function addCertificate(
         uint _id,
@@ -39,7 +55,9 @@ contract Certificate {
         uint _verifiedAt,
         address _candidateAddress
     ) public virtual {
-        require(!certs[_id].exist, "Certificate: ID already existed");
+        if (certs[_id].exist) {
+            revert AlreadyExisted({id: _id});
+        }
 
         certs[_id] = AppCertificate(_name, _verifiedAt, true);
         candidateOwnCert[_id] = _candidateAddress;
@@ -49,15 +67,21 @@ contract Certificate {
         emit AddCertificate(_id, cert.name, cert.verifiedAt, _candidateAddress);
     }
 
-    // only candidate -> resumiro
-    // candidate must own certificate -> resumiro
+    // only candidate -> later
+    // candidate must own certificate
     // id must not existed
     function updateCertificate(
         uint _id,
         string memory _name,
         uint _verifiedAt
     ) public virtual {
-        require(certs[_id].exist, "Certificate: ID not existed");
+        if (!certs[_id].exist) {
+            revert NotExisted({id: _id});
+        }
+
+        if (isOwnerOfCertificate(msg.sender, _id)) {
+            revert NotOwned({id: _id, candidate_address: msg.sender});
+        }
 
         certs[_id].name = _name;
         certs[_id].verifiedAt = _verifiedAt;
@@ -73,11 +97,17 @@ contract Certificate {
         );
     }
 
-    // only candidate -> resumiro
-    // candidate must own certificate -> resumiro
+    // only candidate -> later
+    // candidate must own certificate
     // id must not existed
     function deleteCertificate(uint _id) public virtual {
-        require(certs[_id].exist, "Certificate: ID not existed");
+        if (!certs[_id].exist) {
+            revert NotExisted({id: _id});
+        }
+
+        if (isOwnerOfCertificate(msg.sender, _id)) {
+            revert NotOwned({id: _id, candidate_address: msg.sender});
+        }
 
         AppCertificate memory certificate = certs[_id];
         address ownerAddress = candidateOwnCert[_id];
