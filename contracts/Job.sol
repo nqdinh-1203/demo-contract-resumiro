@@ -24,6 +24,11 @@ contract Job {
     ICompany public company;
     IUser public user;
 
+    constructor(address _userContract, address _companyContract) {
+        user = IUser(_userContract);
+        company = ICompany(_companyContract);
+    }
+
     //=============================EVENTS==========================================
     event AddJob(
         uint id,
@@ -83,6 +88,7 @@ contract Job {
     error NotOwnedJob(address recruiter_address, uint id);
 
     error NotCandidate(address user_address);
+    error NotRecruiter(address user_address);
 
     error NotAppliedCandidate(address candidate_address, uint id);
     error AlreadyAppliedCandidate(address candidate_address, uint id);
@@ -103,6 +109,7 @@ contract Job {
     // only recruiter -> later⏳
     // param _recruiterAddress must equal msg.sender -> later⏳
     // job id must not existed -> done✅
+    // just for recruiter in user contract -> done✅
     // recruiter must connected with company id -> done✅
     function addJob(
         uint _id,
@@ -117,6 +124,12 @@ contract Job {
     ) public virtual {
         if (jobs[_id].exist) {
             revert AlreadyExistedJob({id: _id});
+        }
+        if (
+            !(user.isExisted(_recruiterAddress) &&
+                user.hasType(_recruiterAddress, 1))
+        ) {
+            revert NotRecruiter({user_address: _recruiterAddress});
         }
         if (!company.isExistedCompanyRecruiter(_recruiterAddress, _companyId)) {
             revert RecruiterNotInCompany({
@@ -252,8 +265,8 @@ contract Job {
     // param _candidateAddress must equal msg.sender -> later⏳
     // candidate have skills to apply for the job -> later⏳ -> hard🔥
     // job must existed -> done✅
+    // just candidate in user contract apply -> done✅
     // candidate have not applied this job yet -> done✅
-    // just candidate apply -> done✅
     function connectJobCandidate(
         address _candidateAddress,
         uint _jobId
@@ -261,17 +274,17 @@ contract Job {
         if (!jobs[_jobId].exist) {
             revert NotExistedJob({id: _jobId});
         }
-        if (candidateApplyJob[_candidateAddress][_jobId]) {
-            revert AlreadyAppliedCandidate({
-                candidate_address: _candidateAddress,
-                id: _jobId
-            });
-        }
         if (
             !(user.isExisted(_candidateAddress) &&
                 user.hasType(_candidateAddress, 0))
         ) {
             revert NotCandidate({user_address: _candidateAddress});
+        }
+        if (candidateApplyJob[_candidateAddress][_jobId]) {
+            revert AlreadyAppliedCandidate({
+                candidate_address: _candidateAddress,
+                id: _jobId
+            });
         }
 
         require(jobs[_jobId].exist, "Job-Applicant: id not existed");
@@ -290,8 +303,8 @@ contract Job {
     // only candidate -> later⏳
     // param _candidateAddress must equal msg.sender -> later⏳
     // job must existed -> done✅
+    // just candidate in user contract disapply -> done✅
     // candidate have applied this job -> done✅
-    // just candidate disapply -> done✅
     function disconnectJobCandidate(
         address _candidateAddress,
         uint _jobId
@@ -299,17 +312,17 @@ contract Job {
         if (!jobs[_jobId].exist) {
             revert NotExistedJob({id: _jobId});
         }
-        if (!candidateApplyJob[_candidateAddress][_jobId]) {
-            revert NotAppliedCandidate({
-                candidate_address: _candidateAddress,
-                id: _jobId
-            });
-        }
         if (
             !(user.isExisted(_candidateAddress) &&
                 user.hasType(_candidateAddress, 0))
         ) {
             revert NotCandidate({user_address: _candidateAddress});
+        }
+        if (!candidateApplyJob[_candidateAddress][_jobId]) {
+            revert NotAppliedCandidate({
+                candidate_address: _candidateAddress,
+                id: _jobId
+            });
         }
 
         candidateApplyJob[_candidateAddress][_jobId] = false;
@@ -317,6 +330,11 @@ contract Job {
         bool isApplied = candidateApplyJob[_candidateAddress][_jobId];
 
         emit DisapplyJob(_candidateAddress, owner, _jobId, isApplied);
+    }
+
+    //======================FOR INTERFACE==========================
+    function isExistedJob(uint _jobId) external view returns (bool) {
+        return jobs[_jobId].exist;
     }
 
     //======================INTERFACES==========================

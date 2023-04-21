@@ -3,8 +3,8 @@ pragma solidity ^0.8.18;
 
 contract User {
     enum UserType {
-        RECRUITER,
-        CANDIDATE
+        CANDIDATE,
+        RECRUITER
     }
 
     struct AppUser {

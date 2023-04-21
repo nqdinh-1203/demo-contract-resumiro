@@ -19,6 +19,11 @@ contract Experience {
     ICompany company;
     IUser user;
 
+    constructor(address _userContract, address _companyContract) {
+        user = IUser(_userContract);
+        company = ICompany(_companyContract);
+    }
+
     //=============================EVENTS=====================================
     event AddExperience(
         uint id,
@@ -197,6 +202,12 @@ contract Experience {
             exp.companyId,
             _user
         );
+    }
+
+    function getExperience(
+        uint _id
+    ) public view returns (AppExperience memory) {
+        return experiences[_id];
     }
 
     //======================INTERFACES==========================

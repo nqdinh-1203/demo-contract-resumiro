@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "../interfaces/IUser.sol";
+
 contract Company {
     struct AppCompany {
         string name;
@@ -13,6 +15,11 @@ contract Company {
     //=============================ATTRIBUTES==========================================
     mapping(uint => AppCompany) companies;
     mapping(address => mapping(uint => bool)) recruitersInCompany;
+    IUser user;
+
+    constructor(address _userContract) {
+        user = IUser(_userContract);
+    }
 
     //=============================EVENTS==========================================
     event AddCompany(
@@ -53,6 +60,8 @@ contract Company {
 
     error RecruiterAlreadyInCompany(uint company_id, address recruiter_address);
     error RecruiterNotInCompany(uint company_id, address recruiter_address);
+
+    error NotRecruiter(address user_address);
 
     //=============================METHODS==========================================
     //================COMPANIES=====================
@@ -146,16 +155,27 @@ contract Company {
     // only recruiter -> later⏳
     // param _recruiterAddress must equal msg.sender -> later⏳
     // company must existed -> done✅
+    // just for recruiter in user contract -> done✅
     // recruiter must not in company -> done✅
     function connectCompanyRecruiter(
         address _recruiterAddress,
         uint _companyId
     ) public virtual {
-        require(companies[_companyId].exist, "Company-Recruiter: ID not exist");
-        require(
-            !_isExistedCompanyRecruiter(_recruiterAddress, _companyId),
-            "Company-Recruiter: Recruiter already connected with Company"
-        );
+        if (!companies[_companyId].exist) {
+            revert NotExistedCompany({company_id: _companyId});
+        }
+        if (
+            !(user.isExisted(_recruiterAddress) &&
+                user.hasType(_recruiterAddress, 1))
+        ) {
+            revert NotRecruiter({user_address: _recruiterAddress});
+        }
+        if (_isExistedCompanyRecruiter(_recruiterAddress, _companyId)) {
+            revert RecruiterAlreadyInCompany({
+                recruiter_address: _recruiterAddress,
+                company_id: _companyId
+            });
+        }
 
         recruitersInCompany[_recruiterAddress][_companyId] = true;
         bool isIn = recruitersInCompany[_recruiterAddress][_companyId];
@@ -166,16 +186,27 @@ contract Company {
     // only recruiter -> later⏳
     // param _recruiterAddress must equal msg.sender -> later⏳
     // company must existed -> done✅
+    // just for recruiter in user contract -> done✅
     // recruiter must not in company -> done✅
     function disconnectCompanyRecruiter(
         address _recruiterAddress,
         uint _companyId
     ) public virtual {
-        require(companies[_companyId].exist, "Company-Recruiter: ID not exist");
-        require(
-            _isExistedCompanyRecruiter(_recruiterAddress, _companyId),
-            "Company-Recruiter: Recruiter not connect with Company"
-        );
+        if (!companies[_companyId].exist) {
+            revert NotExistedCompany({company_id: _companyId});
+        }
+        if (
+            !(user.isExisted(_recruiterAddress) &&
+                user.hasType(_recruiterAddress, 1))
+        ) {
+            revert NotRecruiter({user_address: _recruiterAddress});
+        }
+        if (!_isExistedCompanyRecruiter(_recruiterAddress, _companyId)) {
+            revert RecruiterNotInCompany({
+                recruiter_address: _recruiterAddress,
+                company_id: _companyId
+            });
+        }
 
         recruitersInCompany[msg.sender][_companyId] = false;
         bool isIn = recruitersInCompany[_recruiterAddress][_companyId];
@@ -193,5 +224,10 @@ contract Company {
 
     function isExistedCompany(uint _id) external view returns (bool) {
         return companies[_id].exist;
+    }
+
+    //======================INTERFACES==========================
+    function setUserInterface(address _contract) public {
+        user = IUser(_contract);
     }
 }

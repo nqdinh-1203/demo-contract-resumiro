@@ -3,9 +3,13 @@
   "ganache": {},
   "main": {},
   "mumbai": {
-    "Demo": "0xDf459f1ce2CC77DAeC3f7DfDbBEf55f6022dCF26"
+    "Demo": "0xDf459f1ce2CC77DAeC3f7DfDbBEf55f6022dCF26",
+    "User": "0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D",
+    "Company": "0xC036BdbC5eF4050FC224bBAC7EBf84bDF1b899e7",
+    "Certificate": "0x5A1bfa8F19dBd21468cE3BA0022ce9286be03434"
   },
   "localhost": {
-    "Demo": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    "Demo": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "User": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
   }
 }

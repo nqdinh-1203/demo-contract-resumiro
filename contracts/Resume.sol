@@ -55,6 +55,7 @@ contract Resume {
     error NotOwnedResume(address candidate_address, uint id);
 
     error NotRecruiter(address user_address);
+    error NotCandidate(address user_address);
 
     error NotApprovedRecruiter(address recruiter_address, uint id);
     error AlreadyApprovedRecruiter(address recruiter_address, uint id);
@@ -76,14 +77,21 @@ contract Resume {
     // only candidate -> later⏳
     // param _candidateAddress must equal msg.sender -> later⏳
     // resume must not existed -> done✅
+    // just add for candidate -> done✅
     function addResume(
         uint _id,
         string memory _data,
         uint _createAt,
         address _candidateAddress
-    ) public virtual {
+    ) public {
         if (resumes[_id].exist) {
             revert AlreadyApprovedResume({id: _id});
+        }
+        if (
+            !(user.isExisted(_candidateAddress) &&
+                user.hasType(_candidateAddress, 0))
+        ) {
+            revert NotCandidate({user_address: _candidateAddress});
         }
 
         resumes[_id].data = _data;
@@ -108,11 +116,12 @@ contract Resume {
     // only candidate -> later⏳
     // resume must existed -> done✅
     // caller must own resume -> later⏳
+    // caller must be candidate in user contract -> later⏳
     function updateResume(
         uint _id,
         string memory _data,
         uint256 _updateAt
-    ) public virtual {
+    ) public {
         if (!resumes[_id].exist) {
             revert NotExistedResume({id: _id});
         }
@@ -138,7 +147,8 @@ contract Resume {
     // only candidate -> later⏳
     // resume must existed -> done✅
     // caller must own resume -> later⏳
-    function deleteResume(uint _id) public virtual {
+    // caller must be candidate in user contract -> later⏳
+    function deleteResume(uint _id) public {
         if (!resumes[_id].exist) {
             revert NotExistedResume({id: _id});
         }
@@ -177,7 +187,7 @@ contract Resume {
     function connectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
-    ) public virtual {
+    ) public {
         if (!resumes[_resumeId].exist) {
             revert NotExistedResume({id: _resumeId});
         }
@@ -219,7 +229,7 @@ contract Resume {
     function disconnectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
-    ) public virtual {
+    ) public {
         if (!resumes[_resumeId].exist) {
             revert NotExistedResume({id: _resumeId});
         }

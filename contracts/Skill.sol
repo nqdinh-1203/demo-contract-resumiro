@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 // import "./library/UintArray.sol";
 import "../interfaces/IUser.sol";
+import "../interfaces/IJob.sol";
 
 contract Skill {
     // using UintArray for uint[];
@@ -17,6 +18,12 @@ contract Skill {
     mapping(address => mapping(uint => bool)) skillsOfCandidate;
     mapping(uint => mapping(uint => bool)) skillsOfJob;
     IUser user;
+    IJob job;
+
+    constructor(address _userContract, address _jobContract) {
+        user = IUser(_userContract);
+        job = IJob(_jobContract);
+    }
 
     //=============================EVENTS==========================================
     event AddSkill(uint id, string name);
@@ -39,6 +46,8 @@ contract Skill {
     error NotCandidate(address user_address);
     error NotConnectedSkillCandidate(uint skill_id, address candidate_address);
     error NotConnectedSkillJob(uint skill_id, uint job_id);
+
+    error NotExistedJob(uint job_id);
 
     //=============================METHODS==========================================
     //====================SKILLS============================
@@ -69,8 +78,8 @@ contract Skill {
     // only candidate -> later⏳
     // param _candidate must equal msg.sender -> later⏳
     // skill must existed -> done✅
-    // continue connected skill -> done✅
     // just connect with candidate -> done✅
+    // continue connected skill -> done✅
     function connectCandidateSkill(
         address _candidate,
         uint[] memory _skills
@@ -98,8 +107,8 @@ contract Skill {
     // only candidate -> later⏳
     // param _candidate must equal msg.sender -> later⏳
     // skill must existed -> done✅
-    // must not have not connected skill-candidate -> done✅
     // just connect with candidate -> done✅
+    // must not have not connected skill-candidate -> done✅
     function disconnectCandidateSkill(
         address _candidate,
         uint[] memory _skills
@@ -127,15 +136,19 @@ contract Skill {
     }
 
     //====================SKILL-JOB============================
-
     // only recruiter -> later⏳
     // skill must existed -> done✅
+    // job must existed
     // continue connected skill -> done✅
     function connectJobSkill(uint[] memory _skills, uint _job) public {
         for (uint i = 0; i < _skills.length; i++) {
             if (!skills[_skills[i]].exist) {
                 revert NotExistedSkill({id: _skills[i]});
             }
+        }
+
+        if (!job.isExistedJob(_job)) {
+            revert NotExistedJob({job_id: _job});
         }
 
         for (uint i = 0; i < _skills.length; i++) {
@@ -154,6 +167,10 @@ contract Skill {
     // skill must existed -> done✅
     // must not have not connected skill-job -> done✅
     function disconnectJobSkill(uint[] memory _skills, uint _job) public {
+        if (!job.isExistedJob(_job)) {
+            revert NotExistedJob({job_id: _job});
+        }
+
         for (uint i = 0; i < _skills.length; i++) {
             if (!skills[_skills[i]].exist) {
                 revert NotExistedSkill({id: _skills[i]});
@@ -176,5 +193,9 @@ contract Skill {
     //======================USER CONTRACT==========================
     function setUserInterface(address _contract) public {
         user = IUser(_contract);
+    }
+
+    function setJobInterface(address _contract) public {
+        job = IJob(_contract);
     }
 }

@@ -10,12 +10,26 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying from address: ", deployer.address);
 
-  const Resumiro = await ethers.getContractFactory("Resumiro");
-  const resumiro = await Resumiro.deploy();
-  await resumiro.deployed();
+  // const User = await ethers.getContractFactory("User");
+  // const user = await User.deploy();
+  // await user.deployed();
 
-  console.log("Resumiro Contract address: ", resumiro.address);
-  Config.setConfig(network + '.Resumiro', resumiro.address);
+  // console.log("User Contract address: ", user.address);
+  // Config.setConfig(network + '.User', user.address);
+
+  // const Company = await ethers.getContractFactory("Company");
+  // const company = await Company.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D");
+  // await company.deployed();
+
+  // console.log("Company Contract address: ", company.address);
+  // Config.setConfig(network + '.Company', company.address);
+
+  const Certificate = await ethers.getContractFactory("Certificate");
+  const certificate = await Certificate.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D");
+  await certificate.deployed();
+
+  console.log("Certificate Contract address: ", certificate.address);
+  Config.setConfig(network + '.Certificate', certificate.address);
 
   await Config.updateConfig();
 }
