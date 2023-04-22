@@ -19,6 +19,10 @@ contract Resume {
     mapping(uint => address) public candidateOwnResume;
     IUser public user;
 
+    constructor(address _contract) {
+        user = IUser(_contract);
+    }
+
     //=============================EVENTS==========================================
     event AddResume(
         uint id,

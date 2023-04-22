@@ -24,12 +24,40 @@ async function main() {
   // console.log("Company Contract address: ", company.address);
   // Config.setConfig(network + '.Company', company.address);
 
-  const Certificate = await ethers.getContractFactory("Certificate");
-  const certificate = await Certificate.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D");
-  await certificate.deployed();
+  // const Certificate = await ethers.getContractFactory("Certificate");
+  // const certificate = await Certificate.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D");
+  // await certificate.deployed();
 
-  console.log("Certificate Contract address: ", certificate.address);
-  Config.setConfig(network + '.Certificate', certificate.address);
+  // console.log("Certificate Contract address: ", certificate.address);
+  // Config.setConfig(network + '.Certificate', certificate.address);
+
+  const Experience = await ethers.getContractFactory("Experience");
+  const experience = await Experience.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D", "0xC036BdbC5eF4050FC224bBAC7EBf84bDF1b899e7");
+  await experience.deployed();
+
+  console.log("Experience Contract address: ", experience.address);
+  Config.setConfig(network + '.Experience', experience.address);
+
+  const Job = await ethers.getContractFactory("Job");
+  const job = await Job.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D", "0xC036BdbC5eF4050FC224bBAC7EBf84bDF1b899e7");
+  await job.deployed();
+
+  console.log("Job Contract address: ", job.address);
+  Config.setConfig(network + '.Job', job.address);
+
+  const Resume = await ethers.getContractFactory("Resume");
+  const resume = await Resume.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D");
+  await resume.deployed();
+
+  console.log("Resume Contract address: ", resume.address);
+  Config.setConfig(network + '.Resume', resume.address);
+
+  const Skill = await ethers.getContractFactory("Skill");
+  const skill = await Skill.deploy("0x8ae8570C43C8774c73b3c9Fc0D21363FaE38b56D", job.address);
+  await skill.deployed();
+
+  console.log("Skill Contract address: ", skill.address);
+  Config.setConfig(network + '.Skill', skill.address);
 
   await Config.updateConfig();
 }
