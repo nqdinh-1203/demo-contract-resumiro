@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "../interfaces/IExperience.sol";
 import "../interfaces/ICompany.sol";
 import "../interfaces/IUser.sol";
+import "./library/UintArray.sol";
 
-contract Experience {
-    struct AppExperience {
-        string position;
-        uint start;
-        uint finish;
-        uint companyId;
-        bool exist;
-    }
-
+contract Experience is IExperience {
+    
     //=============================ATTRIBUTES==========================================
+    uint[] allExperiences;
     mapping(uint => AppExperience) experiences;
     mapping(address => mapping(uint => bool)) experienceOfUser;
     ICompany company;
@@ -51,17 +47,20 @@ contract Experience {
     );
 
     //=============================ERRORS==========================================
-    error AlreadyExistedExperience(uint experience_id, address user_address);
-    error NotExistedExperience(uint experience_id, address user_address);
+    error Experience__AlreadyExisted(uint experience_id, address user_address);
+    error Experience__NotExisted(uint experience_id, address user_address);
 
-    error NotExistedCompany(uint experience_id, uint company_id);
-    error NotExistedUser(address user_address);
+    error Company__NotExisted(uint experience_id, uint company_id);
+    error User__NotExisted(address user_address);
 
-    error AlreadyConnectedExperienceUser(
+    error Experience_User__AlreadyConnected(
         uint experience_id,
         address user_address
     );
-    error NotConnectedExperienceUser(uint experience_id, address user_address);
+    error Experience_User__NotConnected(
+        uint experience_id,
+        address user_address
+    );
 
     //=============================METHODS==========================================
     //=================EXPERIENCES========================
@@ -71,44 +70,48 @@ contract Experience {
     // company must existed -> done✅
     // just for user -> done✅
     // experience have not been connected with user yet -> done✅
-    function addExperience(
+    function _addExperience(
         address _user,
         uint _id,
         string memory _position,
         uint _start,
         uint _finish,
         uint _companyId
-    ) public {
+    ) internal {
         if (experiences[_id].exist) {
-            revert AlreadyExistedExperience({
+            revert Experience__AlreadyExisted({
                 experience_id: _id,
                 user_address: _user
             });
         }
         if (!company.isExistedCompany(_companyId)) {
-            revert NotExistedCompany({
+            revert Company__NotExisted({
                 experience_id: _id,
                 company_id: _companyId
             });
         }
         if (!user.isExisted(_user)) {
-            revert NotExistedUser({user_address: _user});
+            revert User__NotExisted({user_address: _user});
         }
         if (experienceOfUser[_user][_id]) {
-            revert AlreadyConnectedExperienceUser({
+            revert Experience_User__AlreadyConnected({
                 experience_id: _id,
                 user_address: _user
             });
         }
 
         experiences[_id] = AppExperience(
+            allExperiences.length,
+            _id,
             _position,
             _start,
             _finish,
             _companyId,
-            true
+            true,
+            _user
         );
         experienceOfUser[_user][_id] = true;
+        allExperiences.push(_id);
 
         AppExperience memory exp = experiences[_id];
 
@@ -126,28 +129,28 @@ contract Experience {
     // experience id must existed -> done✅
     // company must existed -> done✅
     // just for user -> done✅
-    function updateExperience(
+    function _updateExperience(
         address _user,
         uint _id,
         string memory _position,
         uint _start,
         uint _finish,
         uint _companyId
-    ) public {
+    ) internal {
         if (!experiences[_id].exist) {
-            revert NotExistedExperience({
+            revert Experience__NotExisted({
                 experience_id: _id,
                 user_address: _user
             });
         }
         if (!company.isExistedCompany(_companyId)) {
-            revert NotExistedCompany({
+            revert Company__NotExisted({
                 experience_id: _id,
                 company_id: _companyId
             });
         }
         if (!user.isExisted(_user)) {
-            revert NotExistedUser({user_address: _user});
+            revert User__NotExisted({user_address: _user});
         }
 
         experiences[_id].position = _position;
@@ -172,24 +175,28 @@ contract Experience {
     // experience id must existed -> done✅
     // just for user -> done✅
     // experience have been connected with user yet -> done✅
-    function deleteExperience(address _user, uint _id) public {
+    function _deleteExperience(address _user, uint _id) internal {
         if (!experiences[_id].exist) {
-            revert NotExistedExperience({
+            revert Experience__NotExisted({
                 experience_id: _id,
                 user_address: _user
             });
         }
         if (!user.isExisted(_user)) {
-            revert NotExistedUser({user_address: _user});
+            revert User__NotExisted({user_address: _user});
         }
         if (!experienceOfUser[_user][_id]) {
-            revert NotConnectedExperienceUser({
+            revert Experience_User__NotConnected({
                 experience_id: _id,
                 user_address: _user
             });
         }
 
         AppExperience memory exp = experiences[_id];
+
+        uint lastIndex = allExperiences.length - 1;
+        experiences[allExperiences[lastIndex]].index = experiences[_id].index;
+        UintArray.remove(allExperiences, experiences[_id].index);
 
         delete experiences[_id];
         delete experienceOfUser[_user][_id];
@@ -204,10 +211,89 @@ contract Experience {
         );
     }
 
+    function _getExperience(
+        uint _id
+    ) internal view returns (AppExperience memory) {
+        return experiences[_id];
+    }
+
+    function _getAllExperiences()
+        internal
+        view
+        returns (AppExperience[] memory)
+    {
+        AppExperience[] memory arrExp = new AppExperience[](
+            allExperiences.length
+        );
+
+        for (uint i = 0; i < arrExp.length; i++) {
+            arrExp[i] = experiences[allExperiences[i]];
+        }
+
+        return arrExp;
+    }
+
+    function _getAllExperiencesOf(
+        address _userAddress
+    ) internal view returns (AppExperience[] memory) {
+        AppExperience[] memory arrExp = new AppExperience[](
+            allExperiences.length
+        );
+
+        for (uint i = 0; i < arrExp.length; i++) {
+            if (experienceOfUser[_userAddress][allExperiences[i]]) {
+                arrExp[i] = experiences[allExperiences[i]];
+            }
+        }
+
+        return arrExp;
+    }
+
+    //======================FOR INTERFACE==========================
+    function addExperience(
+        address _user,
+        uint _id,
+        string memory _position,
+        uint _start,
+        uint _finish,
+        uint _companyId
+    ) external {
+        _addExperience(_user, _id, _position, _start, _finish, _companyId);
+    }
+
+    function updateExperience(
+        address _user,
+        uint _id,
+        string memory _position,
+        uint _start,
+        uint _finish,
+        uint _companyId
+    ) external {
+        _updateExperience(_user, _id, _position, _start, _finish, _companyId);
+    }
+
+    function deleteExperience(address _user, uint _id) external {
+        _deleteExperience(_user, _id);
+    }
+
     function getExperience(
         uint _id
-    ) public view returns (AppExperience memory) {
-        return experiences[_id];
+    ) external view returns (AppExperience memory) {
+        return _getExperience(_id);
+    }
+
+    function getAllExperiences()
+        external
+        view
+        returns (AppExperience[] memory)
+    {
+        return _getAllExperiences();
+    }
+
+    function getAllExperiencesOf(
+        address _userAddress
+    ) external view returns (AppExperience[] memory) {
+        return _getAllExperiencesOf(_userAddress);
     }
 
     //======================INTERFACES==========================

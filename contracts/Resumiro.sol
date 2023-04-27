@@ -1,375 +1,418 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.18;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
 
-// import "./abstract-contract/AccessControl.sol";
-// import "./abstract-contract/Ownable.sol";
+import "./abstract-contract/Ownable.sol";
+import "../interfaces/IUser.sol";
+import "../interfaces/ICompany.sol";
+import "../interfaces/IExperience.sol";
+import "../interfaces/IJob.sol";
+import "../interfaces/IResume.sol";
+import "../interfaces/ISkill.sol";
 
-// import "./User.sol";
-// import "./Company.sol";
-// import "./Certificate.sol";
-// import "./Resume.sol";
-// import "./Job.sol";
+contract Resumiro {
+    /**
+     * @custom:resumiro
+     * */
+    IUser user;
+    ICompany company;
+    IExperience experience;
+    IJob job;
+    IResume resume;
+    ISkill skill;
 
-// contract Resumiro is
-//     Ownable,
-//     AccessControl,
-//     User,
-//     Company,
-//     Certificate,
-//     Resume,
-//     Job
-// {
-//     /**
-//      * @custom:resumiro
-//      * */
-//     constructor() {
-//         _setRole(owner(), ADMIN_ROLE);
-//     }
+    constructor(
+        address _userAddress,
+        address _companyAddress,
+        address _expAddress,
+        address _jobAddress,
+        address _resumeAddress,
+        address _skillAddress
+    ) {
+        user = IUser(_userAddress);
+        company = ICompany(_companyAddress);
+        experience = IExperience(_expAddress);
+        job = IJob(_jobAddress);
+        resume = IResume(_resumeAddress);
+        skill = ISkill(_skillAddress);
+    }
 
-//     /**
-//      * @custom:user-contract
-//      * */
-//     modifier onlyUserWithType(uint _type) {
-//         require(users[msg.sender].exist, "User: Caller not a user");
-//         require(
-//             users[msg.sender].userType == UserType(_type),
-//             "User: Caller not a user with needed role"
-//         );
-//         _;
-//     }
+    function setUserContract(address _userAddress) external {
+        user = IUser(_userAddress);
+    }
 
-//     function addUser(
-//         address _userAddress,
-//         uint _type
-//     ) public override onlyRole(ADMIN_ROLE) {
-//         super.addUser(_userAddress, _type);
-//     }
+    function setCompanyContract(address _companyAddress) external {
+        company = ICompany(_companyAddress);
+    }
 
-//     function deleteUser(
-//         address _userAddress
-//     ) public override onlyRole(ADMIN_ROLE) {
-//         super.deleteUser(_userAddress);
-//     }
+    function setExperienceContract(address _expAddress) external {
+        experience = IExperience(_expAddress);
+    }
 
-//     /**
-//      * @custom:company-contract
-//      * */
-//     function addCompany(
-//         uint _id,
-//         string memory _name,
-//         string memory _website,
-//         string memory _location,
-//         string memory _addr
-//     ) public override onlyRole(ADMIN_ROLE) {
-//         super.addCompany(_id, _name, _website, _location, _addr);
-//     }
+    function setJobContract(address _jobAddress) external {
+        job = IJob(_jobAddress);
+    }
 
-//     function updateCompany(
-//         uint _id,
-//         string memory _name,
-//         string memory _website,
-//         string memory _location,
-//         string memory _addr
-//     ) public override onlyRole(ADMIN_ROLE) {
-//         super.updateCompany(_id, _name, _website, _location, _addr);
-//     }
+    function setResumeContract(address _resumeAddress) external {
+        resume = IResume(_resumeAddress);
+    }
 
-//     function deleteCompany(uint _id) public override onlyRole(ADMIN_ROLE) {
-//         super.deleteCompany(_id);
-//     }
+    function setSkillContract(address _skillAddress) external {
+        skill = ISkill(_skillAddress);
+    }
 
-//     function connectCompanyRecruiter(
-//         address _recruiterAddress,
-//         uint _companyId
-//     ) public override onlyUserWithType(1) onlyRole(RECRUITER_ROLE) {
-//         require(
-//             msg.sender == _recruiterAddress,
-//             "Company-Recruiter: param not match with caller"
-//         );
+    /**
+     * @custom:user-contract
+     * */
+    function isExisted(address _userAddress) external view returns (bool) {
+        return user.isExisted(_userAddress);
+    }
 
-//         super.connectCompanyRecruiter(_recruiterAddress, _companyId);
-//     }
+    function hasType(address _user, uint _type) external view returns (bool) {
+        return user.hasType(_user, _type);
+    }
 
-//     function disconnectCompanyRecruiter(
-//         address _recruiterAddress,
-//         uint _companyId
-//     ) public override onlyUserWithType(1) onlyRole(RECRUITER_ROLE) {
-//         require(
-//             msg.sender == _recruiterAddress,
-//             "Company-Recruiter: param not match with caller"
-//         );
+    function getUser(
+        address _userAddress
+    ) external view returns (IUser.AppUser memory) {
+        return user.getUser(_userAddress);
+    }
 
-//         super.disconnectCompanyRecruiter(_recruiterAddress, _companyId);
-//     }
+    function getAllUser() external view returns (IUser.AppUser[] memory) {
+        return user.getAllUser();
+    }
 
-//     /**
-//      * @custom:certificate-contract
-//      * */
-//     function isOwnerOfCertificate(
-//         address _candidateAddress,
-//         uint _id
-//     ) public view returns (bool) {
-//         return candidateOwnCert[_id] == _candidateAddress;
-//     }
+    function getAllCandidates() external view returns (IUser.AppUser[] memory) {
+        return user.getAllCandidates();
+    }
 
-//     modifier onlyOwnCertificate(uint _id) {
-//         require(
-//             isOwnerOfCertificate(msg.sender, _id),
-//             "Certificate: Caller not own this certificate"
-//         );
-//         _;
-//     }
+    function getAllRecruiters() external view returns (IUser.AppUser[] memory) {
+        return user.getAllRecruiters();
+    }
 
-//     function addCertificate(
-//         uint _id,
-//         string memory _name,
-//         uint _verifiedAt,
-//         address _candidateAddress
-//     ) public override onlyUserWithType(0) onlyRole(CANDIDATE_ROLE) {
-//         require(
-//             msg.sender == _candidateAddress,
-//             "Certificate: param not match with caller"
-//         );
+    function addUser(address _userAddress, uint _type) external {
+        user.addUser(_userAddress, _type);
+    }
 
-//         super.addCertificate(_id, _name, _verifiedAt, _candidateAddress);
-//     }
+    function deleteUser(address _userAddress) external {
+        user.deleteUser(_userAddress);
+    }
 
-//     function updateCertificate(
-//         uint _id,
-//         string memory _name,
-//         uint _verifiedAt
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnCertificate(_id)
-//     {
-//         super.updateCertificate(_id, _name, _verifiedAt);
-//     }
+    /**
+     * @custom:company-contract
+     * */
+    function isExistedCompanyRecruiter(
+        address _recruiterAddress,
+        uint _companyId
+    ) external view returns (bool) {
+        return company.isExistedCompanyRecruiter(_recruiterAddress, _companyId);
+    }
 
-//     function deleteCertificate(
-//         uint _id
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnCertificate(_id)
-//     {
-//         super.deleteCertificate(_id);
-//     }
+    function isExistedCompany(uint _id) external view returns (bool) {
+        return company.isExistedCompany(_id);
+    }
 
-//     /**
-//      * @custom:resume-contract
-//      * */
-//     function isOwnerOfResume(
-//         address _candidateAddress,
-//         uint _id
-//     ) public view returns (bool) {
-//         return candidateOwnResume[_id] == _candidateAddress;
-//     }
+    function getCompany(
+        uint _id
+    ) external view returns (ICompany.AppCompany memory) {
+        return company.getCompany(_id);
+    }
 
-//     modifier onlyOwnResume(uint _id) {
-//         require(isOwnerOfResume(msg.sender, _id), "Resume: Caller not own this resume");
-//         _;
-//     }
+    function getAllCompanies()
+        external
+        view
+        returns (ICompany.AppCompany[] memory)
+    {
+        return company.getAllCompanies();
+    }
 
-//     function addResume(
-//         uint _id,
-//         string memory _data,
-//         uint _createAt,
-//         address _candidateAddress
-//     ) public override onlyUserWithType(0) onlyRole(CANDIDATE_ROLE) {
-//         require(
-//             msg.sender == _candidateAddress,
-//             "Resume: param not match with caller"
-//         );
+    function addCompany(
+        uint _id,
+        string memory _name,
+        string memory _website,
+        string memory _location,
+        string memory _addr
+    ) external {
+        company.addCompany(_id, _name, _website, _location, _addr);
+    }
 
-//         super.addResume(_id, _data, _createAt, _candidateAddress);
-//     }
+    function updateCompany(
+        uint _id,
+        string memory _name,
+        string memory _website,
+        string memory _location,
+        string memory _addr
+    ) external {
+        company.updateCompany(_id, _name, _website, _location, _addr);
+    }
 
-//     function updateResume(
-//         uint _id,
-//         string memory _data,
-//         uint256 _updateAt
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnResume(_id)
-//     {
-//         super.updateResume(_id, _data, _updateAt);
-//     }
+    function deleteCompany(uint _id) external {
+        company.deleteCompany(_id);
+    }
 
-//     function deleteResume(
-//         uint _id
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnResume(_id)
-//     {
-//         super.deleteResume(_id);
-//     }
+    function connectCompanyRecruiter(
+        address _recruiterAddress,
+        uint _companyId
+    ) external {
+        company.connectCompanyRecruiter(_recruiterAddress, _companyId);
+    }
 
-//     modifier justApproveRecruiter(address _recruiterAddress) {
-//         require(
-//             hasRole(_recruiterAddress, RECRUITER_ROLE),
-//             "Approval resume: param not the recruiter access"
-//         );
-//         require(
-//             users[_recruiterAddress].exist &&
-//                 users[_recruiterAddress].userType == UserType(1),
-//             "Approval resume: param not the recruiter"
-//         );
-//         _;
-//     }
+    function disconnectCompanyRecruiter(
+        address _recruiterAddress,
+        uint _companyId
+    ) external {
+        company.disconnectCompanyRecruiter(_recruiterAddress, _companyId);
+    }
 
-//     function connectResumeRecruiter(
-//         address _recruiterAddress,
-//         uint _resumeId
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnResume(_resumeId)
-//         justApproveRecruiter(_recruiterAddress)
-//     {
-//         super.connectResumeRecruiter(_recruiterAddress, _resumeId);
-//     }
+    function getAllCompaniesConnectedRecruiter(
+        address _recruiterAddress
+    ) external view returns (ICompany.AppCompany[] memory) {
+        return company.getAllCompaniesConnectedRecruiter(_recruiterAddress);
+    }
 
-//     function disconnectResumeRecruiter(
-//         address _recruiterAddress,
-//         uint _resumeId
-//     )
-//         public
-//         override
-//         onlyUserWithType(0)
-//         onlyRole(CANDIDATE_ROLE)
-//         onlyOwnResume(_resumeId)
-//         justApproveRecruiter(_recruiterAddress)
-//     {
-//         super.disconnectResumeRecruiter(_recruiterAddress, _resumeId);
-//     }
+    function getAllRecruitersConnectedCompany(
+        uint _companyId
+    ) external view returns (IUser.AppUser[] memory) {
+        return company.getAllRecruitersConnectedCompany(_companyId);
+    }
 
-//     /**
-//      * @custom:job-contract
-//      * */
-//     function isOwnerOfJob(
-//         address _recruiterAddress,
-//         uint _jobId
-//     ) public view returns (bool) {
-//         return recruiterOwnJob[_jobId] == _recruiterAddress;
-//     }
+    /**
+     * @custom:certificate-contract
+     * */
 
-//     modifier onlyOwnJob(uint _id) {
-//         require(isOwnerOfJob(msg.sender, _id), "Job: Caller not own this job");
-//         _;
-//     }
+    /**
+     * @custom:resume-contract
+     * */
+    function isOwnerOfResume(
+        address _candidateAddress,
+        uint _id
+    ) external view returns (bool) {
+        return resume.isOwnerOfResume(_candidateAddress, _id);
+    }
 
-//     function addJob(
-//         uint _id,
-//         string memory _title,
-//         string memory _location,
-//         string memory _jobType,
-//         uint _createAt,
-//         uint _companyId,
-//         uint _salary,
-//         string memory _field,
-//         address _recruiterAddress
-//     ) public override onlyRole(RECRUITER_ROLE) onlyUserWithType(1) {
-//         require(
-//             msg.sender == _recruiterAddress,
-//             "Job: param not match with caller"
-//         );
-//         require(
-//             isExistedCompanyRecruiter(_recruiterAddress, _companyId),
-//             "Job: recruiter not in company"
-//         );
+    function getResume(
+        uint _id
+    ) external view returns (IResume.AppResume memory) {
+        return resume.getResume(_id);
+    }
 
-//         super.addJob(
-//             _id,
-//             _title,
-//             _location,
-//             _jobType,
-//             _createAt,
-//             _companyId,
-//             _salary,
-//             _field,
-//             _recruiterAddress
-//         );
-//     }
+    function getAllResumes()
+        external
+        view
+        returns (IResume.AppResume[] memory)
+    {
+        return resume.getAllResumes();
+    }
 
-//     function updateJob(
-//         uint _id,
-//         string memory _title,
-//         string memory _location,
-//         string memory _jobType,
-//         uint _createAt,
-//         uint _companyId,
-//         uint _salary,
-//         string memory _field
-//     )
-//         public
-//         override
-//         onlyRole(RECRUITER_ROLE)
-//         onlyUserWithType(1)
-//         onlyOwnJob(_id)
-//     {
-//         require(
-//             isExistedCompanyRecruiter(msg.sender, _companyId),
-//             "Job: recruiter not in company"
-//         );
+    function getAllResumesOf(
+        address _candidateAddress
+    ) external view returns (IResume.AppResume[] memory) {
+        return resume.getAllResumesOf(_candidateAddress);
+    }
 
-//         super.updateJob(
-//             _id,
-//             _title,
-//             _location,
-//             _jobType,
-//             _createAt,
-//             _companyId,
-//             _salary,
-//             _field
-//         );
-//     }
+    function addResume(
+        uint _id,
+        string memory _data,
+        uint _createAt,
+        address _candidateAddress
+    ) external {
+        resume.addResume(_id, _data, _createAt, _candidateAddress);
+    }
 
-//     function deleteJob(
-//         uint _id
-//     )
-//         public
-//         override
-//         onlyUserWithType(1)
-//         onlyRole(RECRUITER_ROLE)
-//         onlyOwnJob(_id)
-//     {
-//         super.deleteJob(_id);
-//     }
+    function updateResume(
+        uint _id,
+        string memory _data,
+        uint256 _updateAt
+    ) external {
+        resume.updateResume(_id, _data, _updateAt);
+    }
 
-//     function connectJobCandidate(
-//         address _candidateAddress,
-//         uint _jobId
-//     ) public override onlyRole(CANDIDATE_ROLE) onlyUserWithType(0) {
-//         require(
-//             msg.sender == _candidateAddress,
-//             "Job-Applicant: param not match with caller"
-//         );
+    function deleteResume(uint _id) external {
+        resume.deleteResume(_id);
+    }
 
-//         super.connectJobCandidate(_candidateAddress, _jobId);
-//     }
+    function isExistedResumeRecruiter(
+        address _recruiterAddress,
+        uint _resumeId
+    ) external view returns (bool) {
+        return resume.isExistedResumeRecruiter(_recruiterAddress, _resumeId);
+    }
 
-//     function disconnectJobCandidate(
-//         address _candidateAddress,
-//         uint _jobId
-//     ) public override onlyRole(CANDIDATE_ROLE) onlyUserWithType(0) {
-//         require(
-//             msg.sender == _candidateAddress,
-//             "Job-Applicant: param not match with caller"
-//         );
+    function getAllApprovedResumesOf(
+        address _recruiterAddress
+    ) external view returns (IResume.AppResume[] memory) {
+        return resume.getAllApprovedResumesOf(_recruiterAddress);
+    }
 
-//         super.disconnectJobCandidate(_candidateAddress, _jobId);
-//     }
-// }
+    function getAllApprovedRecruitersOf(
+        uint _resumeId
+    ) external view returns (IUser.AppUser[] memory) {
+        return resume.getAllApprovedRecruitersOf(_resumeId);
+    }
+
+    function connectResumeRecruiter(
+        address _recruiterAddress,
+        uint _resumeId
+    ) external {
+        resume.connectResumeRecruiter(_recruiterAddress, _resumeId);
+    }
+
+    function disconnectResumeRecruiter(
+        address _recruiterAddress,
+        uint _resumeId
+    ) external {
+        resume.disconnectResumeRecruiter(_recruiterAddress, _resumeId);
+    }
+
+    /**
+     * @custom:job-contract
+     * */
+    function isExistedJob(uint _jobId) external view returns (bool) {
+        return job.isExistedJob(_jobId);
+    }
+
+    function isOwnerOfJob(
+        address _recruiterAddress,
+        uint _jobId
+    ) external view returns (bool) {
+        return job.isOwnerOfJob(_recruiterAddress, _jobId);
+    }
+
+    function getJob(uint _id) external view returns (IJob.AppJob memory) {
+        return job.getJob(_id);
+    }
+
+    function getAllJobs() external view returns (IJob.AppJob[] memory) {
+        return job.getAllJobs();
+    }
+
+    function getAllJobsOf(
+        address _recruiterAddress
+    ) external view returns (IJob.AppJob[] memory) {
+        return job.getAllJobsOf(_recruiterAddress);
+    }
+
+    function addJob(
+        uint _id,
+        string memory _title,
+        string memory _location,
+        string memory _jobType,
+        uint _createAt,
+        uint _companyId,
+        uint _salary,
+        string memory _field,
+        address _recruiterAddress
+    ) external {
+        job.addJob(
+            _id,
+            _title,
+            _location,
+            _jobType,
+            _createAt,
+            _companyId,
+            _salary,
+            _field,
+            _recruiterAddress
+        );
+    }
+
+    function updateJob(
+        uint _id,
+        string memory _title,
+        string memory _location,
+        string memory _jobType,
+        uint _updateAt,
+        uint _companyId,
+        uint _salary,
+        string memory _field
+    ) external {
+        job.updateJob(
+            _id,
+            _title,
+            _location,
+            _jobType,
+            _updateAt,
+            _companyId,
+            _salary,
+            _field
+        );
+    }
+
+    function deleteJob(uint _id) external {
+        job.deleteJob(_id);
+    }
+
+    function connectJobCandidate(
+        address _candidateAddress,
+        uint _jobId
+    ) external {
+        job.connectJobCandidate(_candidateAddress, _jobId);
+    }
+
+    function disconnectJobCandidate(
+        address _candidateAddress,
+        uint _jobId
+    ) external {
+        job.disconnectJobCandidate(_candidateAddress, _jobId);
+    }
+
+    function getAllAppliedJobsOf(
+        address _candidate
+    ) external view returns (IJob.AppJob[] memory) {
+        return job.getAllAppliedJobsOf(_candidate);
+    }
+
+    function getAllAppliedCandidatesOf(
+        uint _jobId
+    ) external view returns (IUser.AppUser[] memory) {
+        return job.getAllAppliedCandidatesOf(_jobId);
+    }
+
+    /**
+     * @custom:skill-contract
+     * */
+    function addSkill(uint _id, string memory _name) external {
+        skill.addSkill(_id, _name);
+    }
+
+    function deleteSkill(uint _id) external {
+        skill.deleteSkill(_id);
+    }
+
+    function getAllSkill() external view returns (ISkill.AppSkill[] memory) {
+        return skill.getAllSkill();
+    }
+
+    function connectCandidateSkill(
+        address _candidate,
+        uint[] memory _skills
+    ) external {
+        skill.connectCandidateSkill(_candidate, _skills);
+    }
+
+    function disconnectCandidateSkill(
+        address _candidate,
+        uint[] memory _skills
+    ) external {
+        skill.disconnectCandidateSkill(_candidate, _skills);
+    }
+
+    function getAllSkillsOfCandidate(
+        address _candidate
+    ) external view returns (ISkill.AppSkill[] memory) {
+        return skill.getAllSkillsOfCandidate(_candidate);
+    }
+
+    function connectJobSkill(uint[] memory _skills, uint _job) external {
+        skill.connectJobSkill(_skills, _job);
+    }
+
+    function disconnectJobSkill(uint[] memory _skills, uint _job) external {
+        skill.disconnectJobSkill(_skills, _job);
+    }
+
+    function getAllSkillsOfJob(
+        uint _jobId
+    ) external view returns (ISkill.AppSkill[] memory) {
+        return skill.getAllSkillsOfJob(_jobId);
+    }
+}
