@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import "./abstract-contract/Ownable.sol";
 import "../interfaces/IUser.sol";
 import "../interfaces/ICompany.sol";
+import "../interfaces/ICertificate.sol";
 import "../interfaces/IExperience.sol";
 import "../interfaces/IJob.sol";
 import "../interfaces/IResume.sol";
@@ -15,6 +16,7 @@ contract Resumiro {
      * */
     IUser user;
     ICompany company;
+    ICertificate certificate;
     IExperience experience;
     IJob job;
     IResume resume;
@@ -23,6 +25,7 @@ contract Resumiro {
     constructor(
         address _userAddress,
         address _companyAddress,
+        address _certAddress,
         address _expAddress,
         address _jobAddress,
         address _resumeAddress,
@@ -30,6 +33,7 @@ contract Resumiro {
     ) {
         user = IUser(_userAddress);
         company = ICompany(_companyAddress);
+        certificate = ICertificate(_certAddress);
         experience = IExperience(_expAddress);
         job = IJob(_jobAddress);
         resume = IResume(_resumeAddress);
@@ -42,6 +46,10 @@ contract Resumiro {
 
     function setCompanyContract(address _companyAddress) external {
         company = ICompany(_companyAddress);
+    }
+
+    function setCertificateContract(address _certAddress) external {
+        certificate = ICertificate(_certAddress);
     }
 
     function setExperienceContract(address _expAddress) external {
@@ -126,13 +134,18 @@ contract Resumiro {
     }
 
     function addCompany(
-        uint _id,
         string memory _name,
         string memory _website,
         string memory _location,
-        string memory _addr
+        string memory _addr,
+        address _adminAddress
     ) external {
-        company.addCompany(_id, _name, _website, _location, _addr);
+        company.addCompany(_name, _website, _location, _addr);
+
+        company.connectCompanyRecruiter(
+            _adminAddress,
+            company.getLatestCompanyId()
+        );
     }
 
     function updateCompany(
@@ -178,6 +191,172 @@ contract Resumiro {
     /**
      * @custom:certificate-contract
      * */
+    function isOwnerOfCertificate(
+        address _candidateAddress,
+        uint _id
+    ) external view returns (bool) {
+        return certificate.isOwnerOfCertificate(_candidateAddress, _id);
+    }
+
+    function isVerifierOfCertificate(
+        address _verifierAddress,
+        uint _id
+    ) external view returns (bool) {
+        return certificate.isVerifierOfCertificate(_verifierAddress, _id);
+    }
+
+    function addCertificate(
+        // uint _id,
+        string memory _name,
+        uint _verifiedAt,
+        address _candidateAddress,
+        address _verifierAddress,
+        string memory _certificateAddress
+    ) external {
+        certificate.addCertificate(
+            // _id,
+            _name,
+            _verifiedAt,
+            _candidateAddress,
+            _verifierAddress,
+            _certificateAddress
+        );
+    }
+
+    function updateCertificate(
+        uint _id,
+        uint _verifiedAt,
+        address _verifierAddress,
+        string memory _certificateAddress,
+        ICertificate.DocStatus _status
+    ) external {
+        certificate.updateCertificate(
+            _id,
+            _verifiedAt,
+            _verifierAddress,
+            _certificateAddress,
+            _status
+        );
+    }
+
+    function deleteCertificate(uint _id) external {
+        certificate.deleteCertificate(_id);
+    }
+
+    function getDocument(
+        string memory _certificateAddress
+    )
+        external
+        view
+        returns (
+            string memory name,
+            address requester,
+            address verifier,
+            uint verifiedAt,
+            ICertificate.DocStatus status
+        )
+    {
+        return certificate.getDocument(_certificateAddress);
+    }
+
+    function getCount(address _addressUser) external view returns (uint) {
+        return certificate.getCount(_addressUser);
+    }
+
+    function getCertificateVerifier(
+        address _verifierAddress,
+        uint lindex
+    )
+        external
+        view
+        returns (
+            string memory name,
+            address candidate,
+            uint verifiedAt,
+            string memory certificateAddress,
+            ICertificate.DocStatus status,
+            uint index
+        )
+    {
+        return certificate.getCertificateVerifier(_verifierAddress, lindex);
+    }
+
+    function getCertificatecandidate(
+        address _candidateAddress,
+        uint lindex
+    )
+        external
+        view
+        returns (
+            string memory name,
+            address verifier,
+            uint verifiedAt,
+            string memory certificateAddress,
+            ICertificate.DocStatus status,
+            uint index
+        )
+    {
+        return certificate.getCertificatecandidate(_candidateAddress, lindex);
+    }
+
+    /**
+     * @custom:experience-contract
+     * */
+    function addExperience(
+        string memory _position,
+        string memory _start,
+        string memory _finish,
+        uint _companyId
+    ) external {
+        experience.addExperience(
+            _position,
+            _start,
+            _finish,
+            _companyId,
+            msg.sender
+        );
+    }
+
+    function updateExperience(
+        uint _id,
+        string memory _position,
+        string memory _start,
+        string memory _finish,
+        uint _companyId
+    ) external {
+        experience.updateExperience(
+            _id,
+            _position,
+            _start,
+            _finish,
+            _companyId,
+            msg.sender
+        );
+    }
+
+    function deleteExperience(uint _id) external {
+        experience.deleteExperience(_id, msg.sender);
+    }
+
+    function getExperience(
+        uint _id
+    ) external view returns (IExperience.AppExperience memory) {
+        return experience.getExperience(_id);
+    }
+
+    function getAllExperiences()
+        external
+        view
+        returns (IExperience.AppExperience[] memory)
+    {
+        return experience.getAllExperiences();
+    }
+
+    function getAllExperiencesOf(
+        address _userAddress
+    ) external view returns (IExperience.AppExperience[] memory) {
+        return experience.getAllExperiencesOf(_userAddress);
+    }
 
     /**
      * @custom:resume-contract
@@ -210,21 +389,21 @@ contract Resumiro {
     }
 
     function addResume(
-        uint _id,
         string memory _data,
-        uint _createAt,
-        address _candidateAddress
+        address _candidateAddress,
+        string memory _title,
+        uint _createAt
     ) external {
-        resume.addResume(_id, _data, _createAt, _candidateAddress);
+        resume.addResume(_data, _candidateAddress, _title, _createAt);
     }
 
-    function updateResume(
-        uint _id,
-        string memory _data,
-        uint256 _updateAt
-    ) external {
-        resume.updateResume(_id, _data, _updateAt);
-    }
+    // function updateResume(
+    //     uint _id,
+    //     string memory _data,
+    //     uint256 _updateAt
+    // ) external {
+    //     resume.updateResume(_id, _data, _updateAt);
+    // }
 
     function deleteResume(uint _id) external {
         resume.deleteResume(_id);
@@ -291,50 +470,43 @@ contract Resumiro {
         return job.getAllJobsOf(_recruiterAddress);
     }
 
-    function addJob(
-        uint _id,
-        string memory _title,
-        string memory _location,
-        string memory _jobType,
-        uint _createAt,
-        uint _companyId,
-        uint _salary,
-        string memory _field,
-        address _recruiterAddress
-    ) external {
-        job.addJob(
-            _id,
-            _title,
-            _location,
-            _jobType,
-            _createAt,
-            _companyId,
-            _salary,
-            _field,
-            _recruiterAddress
-        );
+    function addJob(IJob.AppJob memory _job, uint[] memory _skillIds) external {
+        job.addJob(_job);
+        skill.connectJobSkill(_skillIds, job.getLatestJobId());
     }
 
     function updateJob(
-        uint _id,
-        string memory _title,
-        string memory _location,
-        string memory _jobType,
-        uint _updateAt,
-        uint _companyId,
-        uint _salary,
-        string memory _field
+        // uint _id,
+        // string memory _title,
+        // string memory _location,
+        // string memory _jobType,
+        // uint _experience,
+        // string memory _requirements,
+        // string memory _benefits,
+        // uint _updateAt,
+        // uint _companyId,
+        // uint _salary,
+        // string memory _field
+        IJob.AppJob memory _job,
+        uint[] memory _skillIds
     ) external {
-        job.updateJob(
-            _id,
-            _title,
-            _location,
-            _jobType,
-            _updateAt,
-            _companyId,
-            _salary,
-            _field
-        );
+        // job.updateJob(
+        //     _id,
+        //     _title,
+        //     _location,
+        //     _jobType,
+        //     _experience,
+        //     _requirements,
+        //     _benefits,
+        //     _updateAt,
+        //     _companyId,
+        //     _salary,
+        //     _field
+        // );
+        job.updateJob(_job);
+        if (_skillIds.length > 1) {
+            skill.connectJobSkill(_skillIds, _job.id);
+        }
     }
 
     function deleteJob(uint _id) external {
@@ -370,8 +542,8 @@ contract Resumiro {
     /**
      * @custom:skill-contract
      * */
-    function addSkill(uint _id, string memory _name) external {
-        skill.addSkill(_id, _name);
+    function addSkill(string memory _name) external {
+        skill.addSkill(_name);
     }
 
     function deleteSkill(uint _id) external {

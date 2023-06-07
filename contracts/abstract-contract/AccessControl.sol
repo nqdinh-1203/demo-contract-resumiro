@@ -6,6 +6,11 @@ abstract contract AccessControl {
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
 
+    //============================ERRORs================================
+    error User__NoRole(address account);
+    error User__ExistedRole(address account);
+
+    //============================METHODS================================
     // địa chỉ ví của user có role k?
     struct RoleData {
         mapping(address => bool) users;
@@ -21,52 +26,49 @@ abstract contract AccessControl {
     // Ứng với mỗi role có chứa address không?
     mapping(bytes32 => RoleData) private roles;
 
-    function hasRole(
+    function _hasRole(
         address _account,
         bytes32 _role
-    ) public view virtual returns (bool) {
+    ) internal view virtual returns (bool) {
         return roles[_role].users[_account];
     }
 
     modifier onlyRole(bytes32 _role) {
-        require(hasRole(msg.sender, _role), "Role: Caller not have role");
+        if (!_hasRole(tx.origin, _role)) {
+            revert User__NoRole({account: tx.origin});
+        }
         _;
     }
 
-    function _grantRole(address _account, bytes32 _role) internal {
+    function _grantRole(
+        address _account,
+        bytes32 _role
+    ) internal onlyRole(ADMIN_ROLE) {
+        if (_hasRole(_account, _role)) {
+            revert User__ExistedRole({account: _account});
+        }
+
         roles[_role].users[_account] = true;
         emit RoleGranted(_account, _role);
     }
 
-    // Gán role (update chỉ có admin/deployer mới đc gán)
-    function grantRole(
+    function _revokeRole(
         address _account,
         bytes32 _role
-    ) public onlyRole(ADMIN_ROLE) {
-        require(
-            !hasRole(_account, _role),
-            "Account have had this role to grant"
-        );
-        _grantRole(_account, _role);
-    }
-
-    function _revokeRole(address _account, bytes32 _role) public {
+    ) internal onlyRole(ADMIN_ROLE) {
+        if (!_hasRole(_account, _role)) {
+            revert User__NoRole({account: _account});
+        }
         roles[_role].users[_account] = false;
         emit RoleRevoked(_account, _role);
     }
 
-    function revokeRole(
-        address _account,
-        bytes32 _role
-    ) public onlyRole(ADMIN_ROLE) {
-        require(
-            hasRole(_account, _role),
-            "Account have not had this role to revoke"
-        );
-        _revokeRole(_account, _role);
-    }
-
     function _setRole(address _account, bytes32 _role) internal {
-        _grantRole(_account, _role);
+        if (_hasRole(_account, _role)) {
+            revert User__ExistedRole({account: _account});
+        }
+
+        roles[_role].users[_account] = true;
+        emit RoleGranted(_account, _role);
     }
 }

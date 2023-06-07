@@ -5,13 +5,21 @@ import "../interfaces/IExperience.sol";
 import "../interfaces/ICompany.sol";
 import "../interfaces/IUser.sol";
 import "./library/UintArray.sol";
+import "./library/EnumrableSet.sol";
 
 contract Experience is IExperience {
-    
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    bytes32 public constant ADMIN_ROLE = 0x00;
+    bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
+    bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
+
     //=============================ATTRIBUTES==========================================
-    uint[] allExperiences;
+    EnumerableSet.UintSet experienceIds;
+    uint experienceCounter = 1;
     mapping(uint => AppExperience) experiences;
-    mapping(address => mapping(uint => bool)) experienceOfUser;
+    mapping(address => EnumerableSet.UintSet) experienceOfUser;
+
     ICompany company;
     IUser user;
 
@@ -24,29 +32,31 @@ contract Experience is IExperience {
     event AddExperience(
         uint id,
         string position,
-        uint start,
-        uint finish,
+        string start,
+        string finish,
         uint company_id,
         address indexed user_address
     );
     event UpdateExperience(
         uint id,
         string position,
-        uint start,
-        uint finish,
+        string start,
+        string finish,
         uint company_id,
         address indexed user_address
     );
     event DeleteExperience(
         uint id,
         string position,
-        uint start,
-        uint finish,
+        string start,
+        string finish,
         uint company_id,
         address indexed user_address
     );
 
     //=============================ERRORS==========================================
+    error User__NoRole(address account);
+
     error Experience__AlreadyExisted(uint experience_id, address user_address);
     error Experience__NotExisted(uint experience_id, address user_address);
 
@@ -63,22 +73,46 @@ contract Experience is IExperience {
     );
 
     //=============================METHODS==========================================
+    modifier onlyRole(bytes32 _role) {
+        if (!user.hasRole(tx.origin, _role)) {
+            revert User__NoRole({account: tx.origin});
+        }
+        _;
+    }
     //=================EXPERIENCES========================
-    // only user -> later⏳
-    // param _user must equal msg.sender -> later⏳
+
+    modifier onlyUser() {
+        if (
+            !(user.hasRole(tx.origin, ADMIN_ROLE) &&
+                user.hasRole(tx.origin, RECRUITER_ROLE) &&
+                user.hasRole(tx.origin, CANDIDATE_ROLE))
+        ) {
+            revert User__NoRole({account: tx.origin});
+        }
+        _;
+    }
+
+    // only user -> later⏳ -> done✅
+    // param _user must equal msg.sender -> later⏳ -> done✅
     // experience id must not existed -> done✅
     // company must existed -> done✅
     // just for user -> done✅
     // experience have not been connected with user yet -> done✅
     function _addExperience(
-        address _user,
-        uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
-    ) internal {
-        if (experiences[_id].exist) {
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
+    ) internal onlyUser {
+        if (tx.origin != _user) {
+            revert("param and call not match");
+        }
+
+        uint _id = experienceCounter;
+        experienceCounter++;
+
+        if (experienceIds.contains(_id)) {
             revert Experience__AlreadyExisted({
                 experience_id: _id,
                 user_address: _user
@@ -93,7 +127,7 @@ contract Experience is IExperience {
         if (!user.isExisted(_user)) {
             revert User__NotExisted({user_address: _user});
         }
-        if (experienceOfUser[_user][_id]) {
+        if (experienceOfUser[_user].contains(_id)) {
             revert Experience_User__AlreadyConnected({
                 experience_id: _id,
                 user_address: _user
@@ -101,17 +135,15 @@ contract Experience is IExperience {
         }
 
         experiences[_id] = AppExperience(
-            allExperiences.length,
             _id,
             _position,
             _start,
             _finish,
             _companyId,
-            true,
             _user
         );
-        experienceOfUser[_user][_id] = true;
-        allExperiences.push(_id);
+        experienceOfUser[_user].add(_id);
+        experienceIds.add(_id);
 
         AppExperience memory exp = experiences[_id];
 
@@ -125,19 +157,22 @@ contract Experience is IExperience {
         );
     }
 
-    // only user -> later⏳
+    // only user -> later⏳ -> done✅
     // experience id must existed -> done✅
     // company must existed -> done✅
     // just for user -> done✅
     function _updateExperience(
-        address _user,
         uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
-    ) internal {
-        if (!experiences[_id].exist) {
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
+    ) internal onlyUser {
+        if (tx.origin != _user) {
+            revert("param and call not match");
+        }
+        if (!experienceIds.contains(_id)) {
             revert Experience__NotExisted({
                 experience_id: _id,
                 user_address: _user
@@ -170,13 +205,17 @@ contract Experience is IExperience {
         );
     }
 
-    // only user -> later⏳
-    // param _user must equal msg.sender -> later⏳
+    // only user -> later⏳ -> done✅
+    // param _user must equal msg.sender -> later⏳ -> done✅
     // experience id must existed -> done✅
     // just for user -> done✅
     // experience have been connected with user yet -> done✅
-    function _deleteExperience(address _user, uint _id) internal {
-        if (!experiences[_id].exist) {
+    function _deleteExperience(uint _id, address _user) internal onlyUser {
+        if (tx.origin != _user) {
+            revert("param and call not match");
+        }
+
+        if (!experienceIds.contains(_id)) {
             revert Experience__NotExisted({
                 experience_id: _id,
                 user_address: _user
@@ -185,7 +224,7 @@ contract Experience is IExperience {
         if (!user.isExisted(_user)) {
             revert User__NotExisted({user_address: _user});
         }
-        if (!experienceOfUser[_user][_id]) {
+        if (!experienceOfUser[_user].contains(_id)) {
             revert Experience_User__NotConnected({
                 experience_id: _id,
                 user_address: _user
@@ -194,12 +233,9 @@ contract Experience is IExperience {
 
         AppExperience memory exp = experiences[_id];
 
-        uint lastIndex = allExperiences.length - 1;
-        experiences[allExperiences[lastIndex]].index = experiences[_id].index;
-        UintArray.remove(allExperiences, experiences[_id].index);
-
+        experienceIds.remove(_id);
         delete experiences[_id];
-        delete experienceOfUser[_user][_id];
+        experienceOfUser[_user].remove(_id);
 
         emit AddExperience(
             _id,
@@ -222,58 +258,55 @@ contract Experience is IExperience {
         view
         returns (AppExperience[] memory)
     {
-        AppExperience[] memory arrExp = new AppExperience[](
-            allExperiences.length
+        AppExperience[] memory expArr = new AppExperience[](
+            experienceIds.length()
         );
 
-        for (uint i = 0; i < arrExp.length; i++) {
-            arrExp[i] = experiences[allExperiences[i]];
+        for (uint i = 0; i < expArr.length; i++) {
+            expArr[i] = experiences[experienceIds.at(i)];
         }
 
-        return arrExp;
+        return expArr;
     }
 
     function _getAllExperiencesOf(
         address _userAddress
     ) internal view returns (AppExperience[] memory) {
-        AppExperience[] memory arrExp = new AppExperience[](
-            allExperiences.length
+        AppExperience[] memory expArr = new AppExperience[](
+            experienceOfUser[_userAddress].length()
         );
 
-        for (uint i = 0; i < arrExp.length; i++) {
-            if (experienceOfUser[_userAddress][allExperiences[i]]) {
-                arrExp[i] = experiences[allExperiences[i]];
-            }
+        for (uint i = 0; i < expArr.length; i++) {
+            expArr[i] = experiences[experienceOfUser[_userAddress].at(i)];
         }
 
-        return arrExp;
+        return expArr;
     }
 
     //======================FOR INTERFACE==========================
     function addExperience(
-        address _user,
-        uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
     ) external {
-        _addExperience(_user, _id, _position, _start, _finish, _companyId);
+        _addExperience(_position, _start, _finish, _companyId, _user);
     }
 
     function updateExperience(
-        address _user,
         uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
     ) external {
-        _updateExperience(_user, _id, _position, _start, _finish, _companyId);
+        _updateExperience(_id, _position, _start, _finish, _companyId, _user);
     }
 
-    function deleteExperience(address _user, uint _id) external {
-        _deleteExperience(_user, _id);
+    function deleteExperience(uint _id, address _user) external {
+        _deleteExperience(_id, _user);
     }
 
     function getExperience(

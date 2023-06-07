@@ -2,30 +2,16 @@
 pragma solidity ^0.8.18;
 
 import "../interfaces/IUser.sol";
+import "../interfaces/ICertificate.sol";
 import "./library/StringArray.sol";
 
-contract Certificate {
-    struct AppCertificate {
-        string name;
-        uint verifiedAt;
-        bool exist;
-        string certificateAddress;
-        address candidate;
-        address verifier;
-        DocStatus status;
-    }
-
-    enum DocStatus {
-        Pending,
-        Verified,
-        Rejected
-    }
-
-    mapping(address => uint) certCount;
-
+contract Certificate is ICertificate {
     //=============================ATTRIBUTES==========================================
+    uint certCounter = 1;
+    mapping(address => uint) certCount;
     mapping(uint => AppCertificate) certs;
     AppCertificate[] appCerts;
+
     IUser user;
 
     constructor(address _userContract) {
@@ -53,29 +39,47 @@ contract Certificate {
     );
 
     //=============================ERRORS==========================================
-    error NotExisted(uint id);
-    error AlreadyExisted(uint id);
-    error NotOwned(uint id, address candidate_address);
-    error NotVerifierOfCertificate(uint id, address verifier_address);
+    error Cert__NotExisted(uint id);
+    error Cert__AlreadyExisted(uint id);
 
-    error NotCandidate(address user_address);
+    error Cert_Candidate__NotOwned(uint id, address candidate_address);
+    error Cert_Verifier__NotVerifierOfCertificate(
+        uint id,
+        address verifier_address
+    );
 
-    error NotVerifier(address user_address);
+    error Candidate__NotExisted(address user_address);
+
+    error Verifier__NotExisted(address user_address);
 
     //=============================METHODs==========================================
     //==================CERTIFICATES=======================
+    function _isOwnerOfCertificate(
+        address _candidateAddress,
+        uint _id
+    ) internal view returns (bool) {
+        return certs[_id].candidate == _candidateAddress;
+    }
+
+    function _isVerifierOfCertificate(
+        address _verifierAddress,
+        uint _id
+    ) internal view returns (bool) {
+        return certs[_id].verifier == _verifierAddress;
+    }
+
     function isOwnerOfCertificate(
         address _candidateAddress,
         uint _id
-    ) public view returns (bool) {
-        return certs[_id].candidate == _candidateAddress;
+    ) external view returns (bool) {
+        return _isOwnerOfCertificate(_candidateAddress, _id);
     }
 
     function isVerifierOfCertificate(
         address _verifierAddress,
         uint _id
-    ) public view returns (bool) {
-        return certs[_id].verifier == _verifierAddress;
+    ) external view returns (bool) {
+        return _isVerifierOfCertificate(_verifierAddress, _id);
     }
 
     // only candidate -> later⏳
@@ -83,27 +87,30 @@ contract Certificate {
     // id must not existed -> done✅
     // just add for candidate -> done✅
     function addCertificate(
-        uint _id,
+        // uint _id,
         string memory _name,
         uint _verifiedAt,
         address _candidateAddress,
         address _verifierAddress,
         string memory _certificateAddress
-    ) public virtual {
+    ) external {
+        uint _id = certCounter;
+        certCounter++;
+
         if (certs[_id].exist) {
-            revert AlreadyExisted({id: _id});
+            revert Cert__AlreadyExisted({id: _id});
         }
         if (
             !(user.isExisted(_candidateAddress) &&
                 user.hasType(_candidateAddress, 0))
         ) {
-            revert NotCandidate({user_address: _candidateAddress});
+            revert Candidate__NotExisted({user_address: _candidateAddress});
         }
         if (
             !(user.isExisted(_verifierAddress) &&
                 user.hasType(_verifierAddress, 2))
         ) {
-            revert NotVerifier({user_address: _verifierAddress});
+            revert Verifier__NotExisted({user_address: _verifierAddress});
         }
 
         certs[_id] = AppCertificate(
@@ -135,13 +142,13 @@ contract Certificate {
         address _verifierAddress,
         string memory _certificateAddress,
         DocStatus _status
-    ) public virtual {
+    ) external {
         if (!certs[_id].exist) {
-            revert NotExisted({id: _id});
+            revert Cert__NotExisted({id: _id});
         }
 
-        if (!isVerifierOfCertificate(_verifierAddress, _id)) {
-            revert NotVerifierOfCertificate({
+        if (!_isVerifierOfCertificate(_verifierAddress, _id)) {
+            revert Cert_Verifier__NotVerifierOfCertificate({
                 id: _id,
                 verifier_address: _verifierAddress
             });
@@ -177,13 +184,16 @@ contract Certificate {
     // only candidate -> later⏳
     // candidate must own certificate -> later⏳
     // id must not existed -> done✅
-    function deleteCertificate(uint _id) public virtual {
+    function deleteCertificate(uint _id) external {
         if (!certs[_id].exist) {
-            revert NotExisted({id: _id});
+            revert Cert__NotExisted({id: _id});
         }
 
-        if (!isOwnerOfCertificate(msg.sender, _id)) {
-            revert NotOwned({id: _id, candidate_address: msg.sender});
+        if (!_isOwnerOfCertificate(msg.sender, _id)) {
+            revert Cert_Candidate__NotOwned({
+                id: _id,
+                candidate_address: msg.sender
+            });
         }
 
         AppCertificate memory certificate = certs[_id];
@@ -218,7 +228,7 @@ contract Certificate {
     function getDocument(
         string memory _certificateAddress
     )
-        public
+        external
         view
         returns (
             string memory name,
@@ -255,7 +265,7 @@ contract Certificate {
     //     return (cert.name, cert.candidate, cert.verifier, cert.verifiedAt, cert.status);
     //   }
 
-    function getCount(address _addressUser) public view returns (uint) {
+    function getCount(address _addressUser) external view returns (uint) {
         return certCount[_addressUser];
     }
 
@@ -263,7 +273,7 @@ contract Certificate {
         address _verifierAddress,
         uint lindex
     )
-        public
+        external
         view
         returns (
             string memory name,
@@ -292,7 +302,7 @@ contract Certificate {
         address _candidateAddress,
         uint lindex
     )
-        public
+        external
         view
         returns (
             string memory name,

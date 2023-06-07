@@ -3,35 +3,32 @@ pragma solidity ^0.8.18;
 
 interface IExperience {
     struct AppExperience {
-        uint index;
         uint id;
         string position;
-        uint start;
-        uint finish;
+        string start;
+        string finish;
         uint companyId;
-        bool exist;
         address owner;
     }
 
     function addExperience(
-        address _user,
-        uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
     ) external;
 
     function updateExperience(
-        address _user,
         uint _id,
         string memory _position,
-        uint _start,
-        uint _finish,
-        uint _companyId
+        string memory _start,
+        string memory _finish,
+        uint _companyId,
+        address _user
     ) external;
 
-    function deleteExperience(address _user, uint _id) external;
+    function deleteExperience(uint _id, address _user) external;
 
     function getExperience(
         uint _id

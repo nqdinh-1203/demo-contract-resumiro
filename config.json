@@ -2,16 +2,7 @@
   "dev": {},
   "ganache": {},
   "main": {},
-  "mumbai": {
-    "Demo": "0xDf459f1ce2CC77DAeC3f7DfDbBEf55f6022dCF26",
-    "User": "0x867b584D008fA88357c3Ae6A29C2Ce66079AD9C8",
-    "Company": "0x752A75FAF9Ce2e1bF2D811eC912a28100E32742C",
-    "Certificate": "0xDB2F098aF746977d8eB9115b5dB3af1547A41a8E",
-    "Experience": "0x360446a9f6fCEeda3Cca4a307206297bBfda92d5",
-    "Job": "0xc72E822Facbf3EB2423D2EB7D46DC0ae4e3AC616",
-    "Resume": "0x226d38ee05e515683a81bFa2375566E9c50B001c",
-    "Skill": "0x2941d0e1DA4E4534bCFAA5170BA009160F62523b"
-  },
+  "mumbai": {},
   "localhost": {
     "Demo": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "User": "0x5FbDB2315678afecb367f032d93F642f64180aa3",

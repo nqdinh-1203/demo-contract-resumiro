@@ -5,13 +5,12 @@ import "../interfaces/IUser.sol";
 
 interface ICompany {
     struct AppCompany {
-        uint256 index;
         uint id;
         string name;
         string website;
         string location;
         string addr;
-        bool exist;
+        address creater;
     }
 
     function isExistedCompanyRecruiter(
@@ -25,8 +24,9 @@ interface ICompany {
 
     function getAllCompanies() external view returns (AppCompany[] memory);
 
+    function getLatestCompanyId() external view returns (uint);
+
     function addCompany(
-        uint _id,
         string memory _name,
         string memory _website,
         string memory _location,
