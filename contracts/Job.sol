@@ -435,17 +435,18 @@ contract Job is IJob {
         return jobArr;
     }
 
+    // new ⭐ -> change AppUser[] to address[]
     function _getAllAppliedCandidatesOf(
         uint _jobId
-    ) internal view returns (IUser.AppUser[] memory) {
-        IUser.AppUser[] memory candidateArr = user.getAllCandidates();
-        IUser.AppUser[] memory appliedCandidateArr = new IUser.AppUser[](
+    ) internal view returns (address[] memory) {
+        address[] memory candidateArr = user.getAllCandidates();
+        address[] memory appliedCandidateArr = new address[](
             candidateArr.length
         );
 
         for (uint i = 0; i < candidateArr.length; i++) {
             if (
-                candidateApplyJob[candidateArr[i].accountAddress].contains(
+                candidateApplyJob[candidateArr[i]].contains(
                     _jobId
                 )
             ) appliedCandidateArr[i] = candidateArr[i];
@@ -572,7 +573,7 @@ contract Job is IJob {
 
     function getAllAppliedCandidatesOf(
         uint _jobId
-    ) external view returns (IUser.AppUser[] memory) {
+    ) external view returns (address[] memory) {
         return _getAllAppliedCandidatesOf(_jobId);
     }
 

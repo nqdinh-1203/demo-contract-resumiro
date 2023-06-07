@@ -52,7 +52,7 @@ interface IResume {
 
     function getAllApprovedRecruitersOf(
         uint _resumeId
-    ) external view returns (IUser.AppUser[] memory);
+    ) external view returns (address[] memory);
 
     function connectResumeRecruiter(
         address _recruiterAddress,

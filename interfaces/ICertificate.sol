@@ -5,7 +5,6 @@ interface ICertificate {
     struct AppCertificate {
         string name;
         uint verifiedAt;
-        bool exist;
         string certificateAddress;
         address candidate;
         address verifier;
@@ -29,9 +28,7 @@ interface ICertificate {
     ) external view returns (bool);
 
     function addCertificate(
-        // uint _id,
         string memory _name,
-        uint _verifiedAt,
         address _candidateAddress,
         address _verifierAddress,
         string memory _certificateAddress
@@ -39,56 +36,25 @@ interface ICertificate {
 
     function updateCertificate(
         uint _id,
-        uint _verifiedAt,
+        string memory _name,
         address _verifierAddress,
-        string memory _certificateAddress,
-        DocStatus _status
+        string memory _certificateAddress
     ) external;
+
+    function changeCertificateStatus(uint _id, uint _status, uint _verifiedAt) external;
 
     function deleteCertificate(uint _id) external;
 
-    function getDocument(
+    function getCertificate(
         string memory _certificateAddress
-    )
-        external
-        view
-        returns (
-            string memory name,
-            address requester,
-            address verifier,
-            uint verifiedAt,
-            DocStatus status
-        );
-
-    function getCount(address _addressUser) external view returns (uint);
+        // uint _id
+    ) external view returns (AppCertificate memory);
 
     function getCertificateVerifier(
-        address _verifierAddress,
-        uint lindex
-    )
-        external
-        view
-        returns (
-            string memory name,
-            address candidate,
-            uint verifiedAt,
-            string memory certificateAddress,
-            DocStatus status,
-            uint index
-        );
+        address _verifierAddress
+    ) external view returns (AppCertificate[] memory);
 
-    function getCertificatecandidate(
-        address _candidateAddress,
-        uint lindex
-    )
-        external
-        view
-        returns (
-            string memory name,
-            address verifier,
-            uint verifiedAt,
-            string memory certificateAddress,
-            DocStatus status,
-            uint index
-        );
+    function getCertificateCandidate(
+        address _candidateAddress
+    ) external view returns (AppCertificate[] memory);
 }

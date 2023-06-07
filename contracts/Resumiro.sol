@@ -89,12 +89,20 @@ contract Resumiro {
         return user.getAllUser();
     }
 
-    function getAllCandidates() external view returns (IUser.AppUser[] memory) {
+    function getAllCandidates() external view returns (address[] memory) {
         return user.getAllCandidates();
     }
 
-    function getAllRecruiters() external view returns (IUser.AppUser[] memory) {
+    function getAllVerifiers() external view returns (address[] memory) {
+        return user.getAllVerifiers();
+    }
+
+    function getAllRecruiters() external view returns (address[] memory) {
         return user.getAllRecruiters();
+    }
+
+    function getAllAdminRecruiters() external view returns (address[] memory) {
+        return user.getAllAdminRecruiters();
     }
 
     function addUser(address _userAddress, uint _type) external {
@@ -108,6 +116,10 @@ contract Resumiro {
     /**
      * @custom:company-contract
      * */
+    function isCreator(uint _id, address caller) external view returns (bool) {
+        return company.isCreator(_id, caller);
+    }
+
     function isExistedCompanyRecruiter(
         address _recruiterAddress,
         uint _companyId
@@ -137,15 +149,15 @@ contract Resumiro {
         string memory _name,
         string memory _website,
         string memory _location,
-        string memory _addr,
-        address _adminAddress
+        string memory _addr
+        // address _adminAddress
     ) external {
         company.addCompany(_name, _website, _location, _addr);
 
-        company.connectCompanyRecruiter(
-            _adminAddress,
-            company.getLatestCompanyId()
-        );
+        // company.connectCompanyRecruiter(
+        //     _adminAddress,
+        //     company.getLatestCompanyId()
+        // );
     }
 
     function updateCompany(
@@ -184,7 +196,7 @@ contract Resumiro {
 
     function getAllRecruitersConnectedCompany(
         uint _companyId
-    ) external view returns (IUser.AppUser[] memory) {
+    ) external view returns (address[] memory) {
         return company.getAllRecruitersConnectedCompany(_companyId);
     }
 
@@ -206,97 +218,64 @@ contract Resumiro {
     }
 
     function addCertificate(
-        // uint _id,
         string memory _name,
-        uint _verifiedAt,
         address _candidateAddress,
         address _verifierAddress,
         string memory _certificateAddress
     ) external {
-        certificate.addCertificate(
-            // _id,
-            _name,
-            _verifiedAt,
-            _candidateAddress,
-            _verifierAddress,
-            _certificateAddress
-        );
+        certificate.addCertificate(_name, _candidateAddress, _verifierAddress, _certificateAddress);
     }
 
     function updateCertificate(
         uint _id,
-        uint _verifiedAt,
+        string memory _name,
         address _verifierAddress,
-        string memory _certificateAddress,
-        ICertificate.DocStatus _status
+        string memory _certificateAddress
     ) external {
-        certificate.updateCertificate(
-            _id,
-            _verifiedAt,
-            _verifierAddress,
-            _certificateAddress,
-            _status
-        );
+        certificate.updateCertificate(_id, _name, _verifierAddress, _certificateAddress);
+    }
+
+    function changeCertificateStatus(uint _id, uint _status, uint _verifiedAt) external {
+        certificate.changeCertificateStatus(_id, _status, _verifiedAt);
     }
 
     function deleteCertificate(uint _id) external {
         certificate.deleteCertificate(_id);
     }
 
-    function getDocument(
+    function getCertificate(
         string memory _certificateAddress
+        // uint _id
     )
         external
         view
         returns (
-            string memory name,
-            address requester,
-            address verifier,
-            uint verifiedAt,
-            ICertificate.DocStatus status
+            ICertificate.AppCertificate memory
         )
     {
-        return certificate.getDocument(_certificateAddress);
-    }
-
-    function getCount(address _addressUser) external view returns (uint) {
-        return certificate.getCount(_addressUser);
+        return certificate.getCertificate(_certificateAddress);
     }
 
     function getCertificateVerifier(
-        address _verifierAddress,
-        uint lindex
+        address _verifierAddress
     )
         external
         view
         returns (
-            string memory name,
-            address candidate,
-            uint verifiedAt,
-            string memory certificateAddress,
-            ICertificate.DocStatus status,
-            uint index
+            ICertificate.AppCertificate[] memory
         )
     {
-        return certificate.getCertificateVerifier(_verifierAddress, lindex);
+        return certificate.getCertificateVerifier(_verifierAddress);
     }
 
-    function getCertificatecandidate(
-        address _candidateAddress,
-        uint lindex
+    function getCertificateCandidate(
+        address _candidateAddress
     )
         external
         view
-        returns (
-            string memory name,
-            address verifier,
-            uint verifiedAt,
-            string memory certificateAddress,
-            ICertificate.DocStatus status,
-            uint index
-        )
+        returns (ICertificate.AppCertificate[] memory)
     {
-        return certificate.getCertificatecandidate(_candidateAddress, lindex);
+        return certificate.getCertificateCandidate(_candidateAddress);
     }
 
     /**
@@ -313,7 +292,7 @@ contract Resumiro {
             _start,
             _finish,
             _companyId,
-            msg.sender
+            tx.origin
         );
     }
 
@@ -330,12 +309,12 @@ contract Resumiro {
             _start,
             _finish,
             _companyId,
-            msg.sender
+            tx.origin
         );
     }
 
     function deleteExperience(uint _id) external {
-        experience.deleteExperience(_id, msg.sender);
+        experience.deleteExperience(_id, tx.origin);
     }
 
     function getExperience(
@@ -424,7 +403,7 @@ contract Resumiro {
 
     function getAllApprovedRecruitersOf(
         uint _resumeId
-    ) external view returns (IUser.AppUser[] memory) {
+    ) external view returns (address[] memory) {
         return resume.getAllApprovedRecruitersOf(_resumeId);
     }
 
@@ -535,7 +514,7 @@ contract Resumiro {
 
     function getAllAppliedCandidatesOf(
         uint _jobId
-    ) external view returns (IUser.AppUser[] memory) {
+    ) external view returns (address[] memory) {
         return job.getAllAppliedCandidatesOf(_jobId);
     }
 

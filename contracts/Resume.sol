@@ -248,20 +248,17 @@ contract Resume is IResume {
         return resumeArr;
     }
 
+    // new ⭐ -> change AppUser[] to address[]
     function _getAllApprovedRecruitersOf(
         uint _resumeId
-    ) public view returns (IUser.AppUser[] memory) {
-        IUser.AppUser[] memory recruiterArr = user.getAllRecruiters();
-        IUser.AppUser[] memory arrApprovedRecruiter = new IUser.AppUser[](
+    ) public view returns (address[] memory) {
+        address[] memory recruiterArr = user.getAllRecruiters();
+        address[] memory arrApprovedRecruiter = new address[](
             recruiterArr.length
         );
 
         for (uint i = 0; i < recruiterArr.length; i++) {
-            if (
-                resumeApprovals[recruiterArr[i].accountAddress].contains(
-                    _resumeId
-                )
-            ) {
+            if (resumeApprovals[recruiterArr[i]].contains(_resumeId)) {
                 arrApprovedRecruiter[i] = recruiterArr[i];
             }
         }
@@ -410,7 +407,7 @@ contract Resume is IResume {
 
     function getAllApprovedRecruitersOf(
         uint _resumeId
-    ) external view returns (IUser.AppUser[] memory) {
+    ) external view returns (address[] memory) {
         return _getAllApprovedRecruitersOf(_resumeId);
     }
 

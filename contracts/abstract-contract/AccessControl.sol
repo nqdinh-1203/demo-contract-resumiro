@@ -5,6 +5,8 @@ abstract contract AccessControl {
     bytes32 public constant ADMIN_ROLE = 0x00;
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    bytes32 public constant ADMIN_RECRUITER_ROLE = keccak256("ADMIN_RECRUITER_ROLE");
 
     //============================ERRORs================================
     error User__NoRole(address account);
@@ -64,10 +66,6 @@ abstract contract AccessControl {
     }
 
     function _setRole(address _account, bytes32 _role) internal {
-        if (_hasRole(_account, _role)) {
-            revert User__ExistedRole({account: _account});
-        }
-
         roles[_role].users[_account] = true;
         emit RoleGranted(_account, _role);
     }

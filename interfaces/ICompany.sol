@@ -10,8 +10,10 @@ interface ICompany {
         string website;
         string location;
         string addr;
-        address creater;
+        address creator;
     }
+
+    function isCreator(uint _id, address caller) external view returns (bool);
 
     function isExistedCompanyRecruiter(
         address _recruiterAddress,
@@ -59,5 +61,5 @@ interface ICompany {
 
     function getAllRecruitersConnectedCompany(
         uint _companyId
-    ) external view returns (IUser.AppUser[] memory);
+    ) external view returns (address[] memory);
 }

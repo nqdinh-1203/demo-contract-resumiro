@@ -10,12 +10,15 @@ contract User is IUser, AccessControl {
 
     //=============================ATTRIBUTES==========================================
     EnumerableSet.AddressSet userAddresses;
-    // EnumerableSet.AddressSet userAddresses;
-    // EnumerableSet.AddressSet userAddresses;
+    EnumerableSet.AddressSet candidateAddresses;
+    EnumerableSet.AddressSet recruiterAddresses;
+    EnumerableSet.AddressSet verifierAddresses;
+    EnumerableSet.AddressSet adminRecruiterAddresses;
+
     mapping(address => AppUser) users;
 
     //=============================EVENTS==========================================
-    event AddUser(address indexed user_address, UserType user_type, bool exist);
+    event AddUser(address indexed user_address, UserType user_type);
     event DeleteUser(address indexed user_address, UserType user_type);
 
     //=============================ERRORS==========================================
@@ -43,25 +46,45 @@ contract User is IUser, AccessControl {
         return arrUser;
     }
 
-    function _getAllCandidates() internal view returns (AppUser[] memory) {
-        AppUser[] memory arrUser = new AppUser[](userAddresses.length());
+    // new ⭐ -> change AppUser[] to address[]
+    function _getAllCandidates() internal view returns (address[] memory) {
+        address[] memory arrUser = new address[](candidateAddresses.length());
 
-        for (uint i = 0; i < userAddresses.length(); i++) {
-            if (users[userAddresses.at(i)].userType == UserType(0)) {
-                arrUser[i] = users[userAddresses.at(i)];
-            }
+        for (uint i = 0; i < candidateAddresses.length(); i++) {
+            arrUser[i] = users[candidateAddresses.at(i)].accountAddress;
         }
 
         return arrUser;
     }
 
-    function _getAllRecruiters() internal view returns (AppUser[] memory) {
-        AppUser[] memory arrUser = new AppUser[](userAddresses.length());
+    // new ⭐ -> change AppUser[] to address[]
+    function _getAllRecruiters() internal view returns (address[] memory) {
+        address[] memory arrUser = new address[](recruiterAddresses.length());
 
-        for (uint i = 0; i < userAddresses.length(); i++) {
-            if (users[userAddresses.at(i)].userType == UserType(1)) {
-                arrUser[i] = users[userAddresses.at(i)];
-            }
+        for (uint i = 0; i < recruiterAddresses.length(); i++) {
+            arrUser[i] = users[recruiterAddresses.at(i)].accountAddress;
+        }
+
+        return arrUser;
+    }
+
+    // new ⭐ -> change AppUser[] to address[]
+    function _getAllVerifiers() internal view returns (address[] memory) {
+        address[] memory arrUser = new address[](verifierAddresses.length());
+
+        for (uint i = 0; i < verifierAddresses.length(); i++) {
+            arrUser[i] = users[verifierAddresses.at(i)].accountAddress;
+        }
+
+        return arrUser;
+    }
+
+    // new ⭐ -> change AppUser[] to address[]
+    function _getAllAdminRecruiters() internal view returns (address[] memory) {
+        address[] memory arrUser = new address[](adminRecruiterAddresses.length());
+
+        for (uint i = 0; i < adminRecruiterAddresses.length(); i++) {
+            arrUser[i] = users[adminRecruiterAddresses.at(i)].accountAddress;
         }
 
         return arrUser;
@@ -89,11 +112,22 @@ contract User is IUser, AccessControl {
 
         if (_type == 0) {
             _setRole(_userAddress, CANDIDATE_ROLE);
-        } else if (_type == 1) {
+            candidateAddresses.add(_userAddress);
+        } 
+        else if (_type == 1) {
             _setRole(_userAddress, RECRUITER_ROLE);
+            recruiterAddresses.add(_userAddress);
+        }
+        else if (_type == 2) {
+            _setRole(_userAddress, VERIFIER_ROLE);
+            verifierAddresses.add(_userAddress);
+        }
+        else if (_type == 3) {
+            _setRole(_userAddress, ADMIN_RECRUITER_ROLE);
+            adminRecruiterAddresses.add(_userAddress);
         }
 
-        emit AddUser(_userAddress, user.userType, existed);
+        emit AddUser(_userAddress, user.userType);
     }
 
     // only admin -> later⏳ -> done✅
@@ -111,8 +145,19 @@ contract User is IUser, AccessControl {
 
         if (_hasRole(_userAddress, CANDIDATE_ROLE)) {
             _revokeRole(_userAddress, CANDIDATE_ROLE);
-        } else if (_hasRole(_userAddress, RECRUITER_ROLE)) {
+            candidateAddresses.remove(_userAddress);
+        } 
+        else if (_hasRole(_userAddress, RECRUITER_ROLE)) {
             _revokeRole(_userAddress, RECRUITER_ROLE);
+            recruiterAddresses.remove(_userAddress);
+        }
+        else if (_hasRole(_userAddress, VERIFIER_ROLE)) {
+            _revokeRole(_userAddress, VERIFIER_ROLE);
+            verifierAddresses.remove(_userAddress);
+        }
+        else if (_hasRole(_userAddress, ADMIN_RECRUITER_ROLE)) {
+            _revokeRole(_userAddress, ADMIN_RECRUITER_ROLE);
+            adminRecruiterAddresses.remove(_userAddress);
         }
 
         emit DeleteUser(_userAddress, deletedUser.userType);
@@ -153,12 +198,20 @@ contract User is IUser, AccessControl {
         return _getAllUser();
     }
 
-    function getAllCandidates() external view returns (AppUser[] memory) {
+    function getAllCandidates() external view returns (address[] memory) {
         return _getAllCandidates();
     }
 
-    function getAllRecruiters() external view returns (AppUser[] memory) {
+    function getAllRecruiters() external view returns (address[] memory) {
         return _getAllRecruiters();
+    }
+
+    function getAllVerifiers() external view returns (address[] memory) {
+        return _getAllVerifiers();
+    }
+
+    function getAllAdminRecruiters() external view returns (address[] memory) {
+        return _getAllAdminRecruiters();
     }
 
     function addUser(address _userAddress, uint _type) external {

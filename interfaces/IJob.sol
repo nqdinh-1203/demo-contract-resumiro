@@ -85,5 +85,5 @@ interface IJob {
 
     function getAllAppliedCandidatesOf(
         uint _jobId
-    ) external view returns (IUser.AppUser[] memory);
+    ) external view returns (address[] memory);
 }

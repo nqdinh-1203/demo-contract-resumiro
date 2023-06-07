@@ -14,17 +14,17 @@ const config: HardhatUserConfig = {
     //   url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
     //   accounts: [`${process.env.PRIVATE_KEY}`]
     // },
-    mumbai: {
-      url: "https://polygon-mumbai.g.alchemy.com/v2/isVMJIz7j1q9D5e7_simS8hRUByh1PLn",
-      accounts: [`${process.env.PRIVATE_KEY}`]
-    },
-    ganache: {
-      url: `http://127.0.0.1:7545`,
-      allowUnlimitedContractSize: true,
-      accounts: [`${process.env.GANACHE_PRIVATE_KEY}`],
-      blockGasLimit: 12816908, // whatever you want here
-      chainId: 1337,
-    },
+    // mumbai: {
+    //   url: "https://polygon-mumbai.g.alchemy.com/v2/isVMJIz7j1q9D5e7_simS8hRUByh1PLn",
+    //   accounts: [`${process.env.PRIVATE_KEY}`]
+    // },
+    // ganache: {
+    //   url: `http://127.0.0.1:7545`,
+    //   allowUnlimitedContractSize: true,
+    //   accounts: [`${process.env.GANACHE_PRIVATE_KEY}`],
+    //   blockGasLimit: 12816908, // whatever you want here
+    //   chainId: 1337,
+    // },
     hardhat: {
       allowUnlimitedContractSize: true,
       chainId: 31337,

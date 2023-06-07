@@ -4,16 +4,20 @@ pragma solidity ^0.8.18;
 import "../interfaces/IUser.sol";
 import "../interfaces/ICertificate.sol";
 import "./library/StringArray.sol";
+import "./library/EnumrableSet.sol";
 
 contract Certificate is ICertificate {
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+
     //=============================ATTRIBUTES==========================================
     uint certCounter = 1;
-    mapping(address => uint) certCount;
+    EnumerableSet.UintSet certIds;
     mapping(uint => AppCertificate) certs;
-    AppCertificate[] appCerts;
 
     IUser user;
-
     constructor(address _userContract) {
         user = IUser(_userContract);
     }
@@ -23,24 +27,35 @@ contract Certificate is ICertificate {
         uint id,
         string name,
         uint verified_at,
-        address indexed owner_address
+        address indexed owner_address,
+        address indexed verifier_address,
+        DocStatus status
     );
     event UpdateCertificate(
         uint id,
         string name,
-        uint verified_at,
         address indexed owner_address
+    );
+    event ChangeCertificateStatus(
+        uint id,
+        address indexed verifier_address,
+        uint verified_at,
+        DocStatus status
     );
     event DeleteCertificate(
         uint id,
         string name,
         uint verified_at,
-        address indexed owner_address
+        address indexed owner_address,
+        address indexed verifier_address,
+        DocStatus status
     );
 
     //=============================ERRORS==========================================
     error Cert__NotExisted(uint id);
     error Cert__AlreadyExisted(uint id);
+    error Cert__Rejected(uint id);
+    error Cert__NotPending(uint id);
 
     error Cert_Candidate__NotOwned(uint id, address candidate_address);
     error Cert_Verifier__NotVerifierOfCertificate(
@@ -52,8 +67,17 @@ contract Certificate is ICertificate {
 
     error Verifier__NotExisted(address user_address);
 
+    error User__NoRole(address account);
+
     //=============================METHODs==========================================
     //==================CERTIFICATES=======================
+    modifier onlyRole(bytes32 _role) {
+        if (!user.hasRole(tx.origin, _role)) {
+            revert User__NoRole({account: tx.origin});
+        }
+        _;
+    }
+
     function _isOwnerOfCertificate(
         address _candidateAddress,
         uint _id
@@ -68,36 +92,26 @@ contract Certificate is ICertificate {
         return certs[_id].verifier == _verifierAddress;
     }
 
-    function isOwnerOfCertificate(
-        address _candidateAddress,
-        uint _id
-    ) external view returns (bool) {
-        return _isOwnerOfCertificate(_candidateAddress, _id);
-    }
-
-    function isVerifierOfCertificate(
-        address _verifierAddress,
-        uint _id
-    ) external view returns (bool) {
-        return _isVerifierOfCertificate(_verifierAddress, _id);
-    }
-
-    // only candidate -> later⏳
-    // param _candidateAddress must equal msg.sender -> later⏳
+    // only candidate -> later⏳ -> done✅
+    // param _candidateAddress must equal msg.sender -> later⏳ -> done✅
     // id must not existed -> done✅
     // just add for candidate -> done✅
-    function addCertificate(
-        // uint _id,
+    // new ⭐ -> change params and event
+    function _addCertificate (
         string memory _name,
-        uint _verifiedAt,
+        // uint _verifiedAt, -> not need to add
         address _candidateAddress,
         address _verifierAddress,
         string memory _certificateAddress
-    ) external {
+    ) internal onlyRole(CANDIDATE_ROLE) {
+        if (_candidateAddress != tx.origin) {
+            revert("param and call not match");
+        }
+
         uint _id = certCounter;
         certCounter++;
 
-        if (certs[_id].exist) {
+        if (certIds.contains(_id)) {
             revert Cert__AlreadyExisted({id: _id});
         }
         if (
@@ -115,148 +129,174 @@ contract Certificate is ICertificate {
 
         certs[_id] = AppCertificate(
             _name,
-            _verifiedAt,
-            true,
+            0, // 0 is not verified
             _certificateAddress,
             _candidateAddress,
             _verifierAddress,
             DocStatus.Pending
         );
 
-        certCount[_candidateAddress] += 1;
-        certCount[_verifierAddress] += 1;
-
         AppCertificate memory cert = certs[_id];
+        certIds.add(_id);
 
-        appCerts.push(cert);
-
-        emit AddCertificate(_id, cert.name, cert.verifiedAt, _candidateAddress);
+        emit AddCertificate(
+            _id,
+            cert.name, 
+            cert.verifiedAt, 
+            cert.candidate,
+            cert.verifier,
+            cert.status
+        );
     }
 
-    // only candidate -> later⏳
-    // candidate must own certificate -> later⏳
-    // id must not existed -> done✅
-    function updateCertificate(
+    // only candidate -> later⏳ -> done✅
+    // candidate must own certificate -> later⏳ -> done✅
+    // cannot update rejected or verified cert -> done✅
+    // id must existed -> done✅
+    // new ⭐ -> change params and event
+    function _updateCertificate(
         uint _id,
-        uint _verifiedAt,
+        // uint _verifiedAt, -> not need to update
+        string memory _name, // update this
         address _verifierAddress,
-        string memory _certificateAddress,
-        DocStatus _status
-    ) external {
-        if (!certs[_id].exist) {
-            revert Cert__NotExisted({id: _id});
-        }
-
-        if (!_isVerifierOfCertificate(_verifierAddress, _id)) {
-            revert Cert_Verifier__NotVerifierOfCertificate({
+        string memory _certificateAddress
+        // DocStatus _status -> candidate cannot change cert status 
+    ) internal onlyRole(CANDIDATE_ROLE) {
+        if (!_isOwnerOfCertificate(tx.origin, _id)) {
+            revert Cert_Candidate__NotOwned({
                 id: _id,
-                verifier_address: _verifierAddress
+                candidate_address: tx.origin
             });
         }
-
-        certs[_id].verifiedAt = _verifiedAt;
-        certs[_id].status = _status;
-        AppCertificate memory cert = certs[_id];
-
-        for (uint i = 0; i < appCerts.length; i++) {
-            if (
-                StringArray.equal(
-                    _certificateAddress,
-                    appCerts[i].certificateAddress
-                )
-            ) {
-                delete appCerts[i];
-                appCerts.push(cert);
-                break;
-            }
+        if (!certIds.contains(_id)) {
+            revert Cert__NotExisted({id: _id});
+        }
+        if (certs[_id].status != DocStatus.Pending) {
+            revert Cert__NotPending({id: _id});
         }
 
-        address candidateAddress = certs[_id].candidate;
+        // if (!_isVerifierOfCertificate(_verifierAddress, _id)) {
+        //     revert Cert_Verifier__NotVerifierOfCertificate({
+        //         id: _id,
+        //         verifier_address: _verifierAddress
+        //     });
+        // }
+
+        certs[_id].name = _name;
+        certs[_id].verifier = _verifierAddress;
+        certs[_id].certificateAddress = _certificateAddress;
+
+        AppCertificate memory cert = certs[_id];
+
+        // for (uint i = 0; i < appCerts.length; i++) {
+        //     if (
+        //         StringArray.equal(
+        //             _certificateAddress,
+        //             appCerts[i].certificateAddress
+        //         )
+        //     ) {
+        //         delete appCerts[i];
+        //         appCerts.push(cert);
+        //         break;
+        //     }
+        // }
+
+        // address candidateAddress = certs[_id].candidate;
 
         emit UpdateCertificate(
             _id,
             cert.name,
-            cert.verifiedAt,
-            candidateAddress
+            cert.candidate
         );
     }
 
-    // only candidate -> later⏳
-    // candidate must own certificate -> later⏳
-    // id must not existed -> done✅
-    function deleteCertificate(uint _id) external {
-        if (!certs[_id].exist) {
+    // only verifier -> done✅
+    // id must existed -> done✅
+    // verifier must be setted for certificate -> done✅
+    // cannot change status with rejected 
+    // new ⭐
+    function _changeCertificateStatus(uint _id, uint _status, uint _verifiedAt) internal onlyRole(VERIFIER_ROLE) {
+        if (!certIds.contains(_id)) {
             revert Cert__NotExisted({id: _id});
         }
 
-        if (!_isOwnerOfCertificate(msg.sender, _id)) {
+        if (!_isVerifierOfCertificate(tx.origin, _id)) {
+            revert Cert_Verifier__NotVerifierOfCertificate({
+                id: _id,
+                verifier_address: tx.origin
+            });
+        }
+
+        if (certs[_id].status == DocStatus.Rejected) {
+            revert Cert__Rejected({
+                id: _id
+            });
+        }
+
+        certs[_id].status = DocStatus(_status);
+        if (certs[_id].status == DocStatus.Verified) {
+            certs[_id].verifiedAt = _verifiedAt;
+        }
+        
+        AppCertificate memory cert = certs[_id];
+
+        emit ChangeCertificateStatus(
+            _id,
+            cert.verifier,
+            cert.verifiedAt,
+            cert.status
+        );
+    }
+
+    // only candidate -> later⏳ -> done✅
+    // candidate must own certificate -> later⏳ -> done✅
+    // id must not existed -> done✅
+    // new ⭐ -> change event
+    function _deleteCertificate(uint _id) internal onlyRole(CANDIDATE_ROLE) {
+        if (!certIds.contains(_id)) {
+            revert Cert__NotExisted({id: _id});
+        }
+        if (!_isOwnerOfCertificate(tx.origin, _id)) {
             revert Cert_Candidate__NotOwned({
                 id: _id,
-                candidate_address: msg.sender
+                candidate_address: tx.origin
             });
         }
 
         AppCertificate memory certificate = certs[_id];
-        address ownerAddress = certs[_id].candidate;
-
-        for (uint i = 0; i < appCerts.length; i++) {
-            if (
-                StringArray.equal(
-                    certificate.certificateAddress,
-                    appCerts[i].certificateAddress
-                )
-            ) {
-                appCerts[i] = appCerts[appCerts.length - 1];
-                appCerts.pop();
-                break;
-            }
-        }
-
-        certCount[certs[_id].candidate] -= 1;
-        certCount[certs[_id].verifier] -= 1;
 
         delete certs[_id];
+        certIds.remove(_id);
 
         emit DeleteCertificate(
             _id,
             certificate.name,
             certificate.verifiedAt,
-            ownerAddress
+            certificate.candidate,
+            certificate.verifier,
+            certificate.status
         );
     }
 
-    function getDocument(
+    // new ⭐ -> change return
+    function _getCertificate(
         string memory _certificateAddress
+        // uint _id
     )
-        external
+        internal
         view
         returns (
-            string memory name,
-            address requester,
-            address verifier,
-            uint verifiedAt,
-            DocStatus status
+            AppCertificate memory cert
         )
     {
-        uint index = 0;
-        AppCertificate memory cert = certs[index];
-        while (cert.candidate != address(0)) {
-            if (
-                StringArray.equal(cert.certificateAddress, _certificateAddress)
-            ) {
+        for (uint i = 0; i < certIds.length(); i++) {
+            if (StringArray.equal(certs[certIds.at(i)].certificateAddress, _certificateAddress)) {
+                cert = certs[certIds.at(i)];
                 break;
-            } else {
-                index += 1;
-                cert = certs[index];
             }
         }
-        return (
-            cert.name,
-            cert.candidate,
-            cert.verifier,
-            cert.verifiedAt,
-            cert.status
-        );
+
+        // cert = certs[_id];
     }
 
     //   function getDocument(uint _id) public view
@@ -265,69 +305,137 @@ contract Certificate is ICertificate {
     //     return (cert.name, cert.candidate, cert.verifier, cert.verifiedAt, cert.status);
     //   }
 
-    function getCount(address _addressUser) external view returns (uint) {
-        return certCount[_addressUser];
+    // function getCount(address _addressUser) external view returns (uint) {
+    //     return certCount[_addressUser];
+    // }
+
+    // only verifier -> done✅
+    // new ⭐ -> change return
+    function _getCertificateVerifier(
+        address _verifierAddress
+    )
+        internal
+        view
+        onlyRole(VERIFIER_ROLE)
+        returns (
+            AppCertificate[] memory certArr
+        )
+    {
+        certArr = new AppCertificate[](certIds.length());
+
+        if (_verifierAddress != tx.origin) {
+            revert("param and origin not match");
+        }
+        for (uint i = 0; i < certIds.length(); i++) {
+            if (certs[certIds.at(i)].verifier == _verifierAddress) {
+                certArr[i] = certs[certIds.at(i)];
+            }
+        }
+    }
+
+    // only candidate -> done✅
+    // new ⭐ -> change return
+    function _getCertificateCandidate(
+        address _candidateAddress
+    )
+        internal
+        view
+        onlyRole(CANDIDATE_ROLE)
+        returns (
+            AppCertificate[] memory certArr
+        )
+    {
+        certArr = new AppCertificate[](certIds.length());
+
+        if (_candidateAddress != tx.origin) {
+            revert("param and origin not match");
+        }
+        for (uint i = 0; i < certIds.length(); i++) {
+            if (certs[certIds.at(i)].candidate == _candidateAddress) {
+                certArr[i] = certs[certIds.at(i)];
+            }
+        }
+    }
+
+    //====================================FOR INTERFACE====================================
+    function isOwnerOfCertificate(
+        address _candidateAddress,
+        uint _id
+    ) external view returns (bool) {
+        return _isOwnerOfCertificate(_candidateAddress, _id);
+    }
+
+    function isVerifierOfCertificate(
+        address _verifierAddress,
+        uint _id
+    ) external view returns (bool) {
+        return _isVerifierOfCertificate(_verifierAddress, _id);
+    }
+
+    function addCertificate(
+        string memory _name,
+        address _candidateAddress,
+        address _verifierAddress,
+        string memory _certificateAddress
+    ) external {
+        _addCertificate(_name, _candidateAddress, _verifierAddress, _certificateAddress);
+    }
+
+    function updateCertificate(
+        uint _id,
+        string memory _name,
+        address _verifierAddress,
+        string memory _certificateAddress
+    ) external {
+        _updateCertificate(_id, _name, _verifierAddress, _certificateAddress);
+    }
+
+    function changeCertificateStatus(uint _id, uint _status, uint _verifiedAt) external {
+        _changeCertificateStatus(_id, _status, _verifiedAt);
+    }
+
+    function deleteCertificate(uint _id) external onlyRole(CANDIDATE_ROLE) {
+        _deleteCertificate(_id);
+    }
+
+    function getCertificate(
+        string memory _certificateAddress
+        // uint _id
+    )
+        external
+        view
+        returns (
+            AppCertificate memory
+        )
+    {
+        return _getCertificate(_certificateAddress);
     }
 
     function getCertificateVerifier(
-        address _verifierAddress,
-        uint lindex
+        address _verifierAddress
     )
         external
         view
+        onlyRole(VERIFIER_ROLE)
         returns (
-            string memory name,
-            address candidate,
-            uint verifiedAt,
-            string memory certificateAddress,
-            DocStatus status,
-            uint index
+            AppCertificate[] memory
         )
     {
-        for (uint i = lindex; i < appCerts.length; i++) {
-            if (appCerts[i].verifier == _verifierAddress) {
-                name = appCerts[i].name;
-                verifiedAt = appCerts[i].verifiedAt;
-                certificateAddress = appCerts[i].certificateAddress;
-                candidate = appCerts[i].candidate;
-                status = appCerts[i].status;
-                index = i;
-                break;
-            }
-        }
-        return (name, candidate, verifiedAt, certificateAddress, status, index);
+        return _getCertificateVerifier(_verifierAddress);
     }
 
-    function getCertificatecandidate(
-        address _candidateAddress,
-        uint lindex
+    function getCertificateCandidate(
+        address _candidateAddress
     )
         external
         view
-        returns (
-            string memory name,
-            address verifier,
-            uint verifiedAt,
-            string memory certificateAddress,
-            DocStatus status,
-            uint index
-        )
+        returns (AppCertificate[] memory)
     {
-        for (uint i = lindex; i < appCerts.length; i++) {
-            if (appCerts[i].candidate == _candidateAddress) {
-                name = appCerts[i].name;
-                verifiedAt = appCerts[i].verifiedAt;
-                certificateAddress = appCerts[i].certificateAddress;
-                verifier = appCerts[i].verifier;
-                status = appCerts[i].status;
-                index = i;
-                break;
-            }
-        }
-        return (name, verifier, verifiedAt, certificateAddress, status, index);
+        return _getCertificateCandidate(_candidateAddress);
     }
 
-    //======================USER CONTRACT==========================
+
+    //====================================USER CONTRACT====================================
     function setUserInterface(address _contract) public {
         user = IUser(_contract);
     }

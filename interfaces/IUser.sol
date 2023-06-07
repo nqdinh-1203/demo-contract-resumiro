@@ -2,10 +2,12 @@
 pragma solidity ^0.8.18;
 
 interface IUser {
+    // new ⭐ -> new role
     enum UserType {
         CANDIDATE,
         RECRUITER,
-        ADMIN
+        VERIFIER,
+        ADMIN_RECRUITER
     }
 
     struct AppUser {
@@ -32,9 +34,13 @@ interface IUser {
 
     function getAllUser() external view returns (AppUser[] memory);
 
-    function getAllCandidates() external view returns (AppUser[] memory);
+    function getAllCandidates() external view returns (address[] memory);
 
-    function getAllRecruiters() external view returns (AppUser[] memory);
+    function getAllRecruiters() external view returns (address[] memory);
+
+    function getAllVerifiers() external view returns (address[] memory);
+
+    function getAllAdminRecruiters() external view returns (address[] memory);
 
     function addUser(address _userAddress, uint _type) external;
 
