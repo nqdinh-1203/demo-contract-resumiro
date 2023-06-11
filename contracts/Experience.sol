@@ -13,7 +13,8 @@ contract Experience is IExperience {
     bytes32 public constant ADMIN_ROLE = 0x00;
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
-    bytes32 public constant ADMIN_RECRUITER_ROLE = keccak256("ADMIN_RECRUITER_ROLE");
+    bytes32 public constant ADMIN_COMPANY_ROLE =
+        keccak256("ADMIN_COMPANY_ROLE");
 
     //=============================ATTRIBUTES==========================================
     EnumerableSet.UintSet experienceIds;
@@ -47,7 +48,7 @@ contract Experience is IExperience {
         uint company_id,
         address indexed user_address
     );
-    event ChangeExpStatus (
+    event ChangeExpStatus(
         uint id,
         ExpStatus status,
         address indexed admin_recruiter
@@ -82,6 +83,7 @@ contract Experience is IExperience {
         uint experience_id,
         address user_address
     );
+    error Exp_User__ForSelf(address user_address, address origin_address);
 
     //=============================METHODS==========================================
     modifier onlyRole(bytes32 _role) {
@@ -90,11 +92,20 @@ contract Experience is IExperience {
         }
         _;
     }
-    //=================EXPERIENCES========================
+
+    modifier onlySelf(address account) {
+        if (account != tx.origin) {
+            revert Exp_User__ForSelf({
+                user_address: account,
+                origin_address: tx.origin
+            });
+        }
+        _;
+    }
 
     modifier onlyCandidateOrRecruiter() {
         if (
-            !(  user.hasRole(tx.origin, RECRUITER_ROLE) &&
+            !(user.hasRole(tx.origin, RECRUITER_ROLE) &&
                 user.hasRole(tx.origin, CANDIDATE_ROLE))
         ) {
             revert User__NoRole({account: tx.origin});
@@ -102,6 +113,17 @@ contract Experience is IExperience {
         _;
     }
 
+    modifier onlyOwner(uint _id) {
+        if (!experienceOfUser[tx.origin].contains(_id)) {
+            revert Experience_User__NotConnected({
+                experience_id: _id,
+                user_address: tx.origin
+            });
+        }
+        _;
+    }
+
+    //=================EXPERIENCES========================
     // only user -> later⏳ -> done✅
     // param _user must equal msg.sender -> later⏳ -> done✅
     // experience id must not existed -> done✅
@@ -114,11 +136,7 @@ contract Experience is IExperience {
         string memory _finish,
         uint _companyId,
         address _user
-    ) internal onlyCandidateOrRecruiter {
-        if (tx.origin != _user) {
-            revert("param and call not match");
-        }
-
+    ) internal onlyCandidateOrRecruiter onlySelf(_user) {
         uint _id = experienceCounter;
         experienceCounter++;
 
@@ -182,14 +200,9 @@ contract Experience is IExperience {
         string memory _finish,
         uint _companyId,
         address _user
-    ) internal onlyCandidateOrRecruiter {
-        if (tx.origin != _user) {
-            revert("param and call not match");
-        }
+    ) internal onlyCandidateOrRecruiter onlySelf(_user) onlyOwner(_id) {
         if (experiences[_id].status != ExpStatus.Pending) {
-            revert Experience__NotPending({
-                experience_id: _id
-            });
+            revert Experience__NotPending({experience_id: _id});
         }
         if (!experienceIds.contains(_id)) {
             revert Experience__NotExisted({
@@ -229,22 +242,24 @@ contract Experience is IExperience {
     // admin-recruiter is creator of company -> done✅
     // cannot change status with rejected -> done✅
     // new ⭐
-    function _changeExpStatus(uint _id, uint _status, uint _verifiedAt) internal onlyRole(ADMIN_RECRUITER_ROLE) {
+    function _changeExpStatus(
+        uint _id,
+        uint _status,
+        uint _verifiedAt
+    ) internal onlyRole(ADMIN_COMPANY_ROLE) {
         if (!experienceIds.contains(_id)) {
-            revert Experience__NotExisted({experience_id: _id, user_address: address(0)});
+            revert Experience__NotExisted({
+                experience_id: _id,
+                user_address: address(0)
+            });
         }
 
         if (!company.isCreator(experiences[_id].companyId, tx.origin)) {
-            revert Company__NotCreator({
-                company_id: _id,
-                caller: tx.origin
-            });
+            revert Company__NotCreator({company_id: _id, caller: tx.origin});
         }
 
         if (experiences[_id].status == ExpStatus.Rejected) {
-            revert Experience__Rejected({
-                experience_id: _id
-            });
+            revert Experience__Rejected({experience_id: _id});
         }
 
         experiences[_id].status = ExpStatus(_status);
@@ -252,16 +267,15 @@ contract Experience is IExperience {
         if (experiences[_id].status == ExpStatus.Verified) {
             experiences[_id].verifiedAt = _verifiedAt;
             // new ⭐
-            company.connectCompanyRecruiter(experiences[_id].owner, experiences[_id].companyId);
+            company.connectCompanyUser(
+                experiences[_id].owner,
+                experiences[_id].companyId
+            );
         }
-        
+
         AppExperience memory exp = experiences[_id];
 
-        emit ChangeExpStatus(
-            _id,
-            exp.status,
-            tx.origin
-        );
+        emit ChangeExpStatus(_id, exp.status, tx.origin);
     }
 
     // only user -> later⏳ -> done✅
@@ -269,7 +283,10 @@ contract Experience is IExperience {
     // experience id must existed -> done✅
     // just for user -> done✅
     // experience have been connected with user yet -> done✅
-    function _deleteExperience(uint _id, address _user) internal onlyCandidateOrRecruiter {
+    function _deleteExperience(
+        uint _id,
+        address _user
+    ) internal onlyCandidateOrRecruiter onlySelf(_user) onlyOwner(_id) {
         if (tx.origin != _user) {
             revert("param and call not match");
         }
@@ -282,12 +299,6 @@ contract Experience is IExperience {
         }
         if (!user.isExisted(_user)) {
             revert User__NotExisted({user_address: _user});
-        }
-        if (!experienceOfUser[_user].contains(_id)) {
-            revert Experience_User__NotConnected({
-                experience_id: _id,
-                user_address: _user
-            });
         }
 
         AppExperience memory exp = experiences[_id];
@@ -365,7 +376,11 @@ contract Experience is IExperience {
         _updateExperience(_id, _position, _start, _finish, _companyId, _user);
     }
 
-    function changeExpStatus(uint _id, uint _status, uint _verifiedAt) external {
+    function changeExpStatus(
+        uint _id,
+        uint _status,
+        uint _verifiedAt
+    ) external {
         _changeExpStatus(_id, _status, _verifiedAt);
     }
 

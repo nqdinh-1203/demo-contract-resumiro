@@ -6,7 +6,7 @@ interface IUser {
     enum UserType {
         CANDIDATE,
         RECRUITER,
-        VERIFIER,
+        // VERIFIER,
         ADMIN_RECRUITER
     }
 
@@ -38,9 +38,7 @@ interface IUser {
 
     function getAllRecruiters() external view returns (address[] memory);
 
-    function getAllVerifiers() external view returns (address[] memory);
-
-    function getAllAdminRecruiters() external view returns (address[] memory);
+    function getAllAdminCompany() external view returns (address[] memory);
 
     function addUser(address _userAddress, uint _type) external;
 

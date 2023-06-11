@@ -5,8 +5,8 @@ abstract contract AccessControl {
     bytes32 public constant ADMIN_ROLE = 0x00;
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
-    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
-    bytes32 public constant ADMIN_RECRUITER_ROLE = keccak256("ADMIN_RECRUITER_ROLE");
+    // bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    bytes32 public constant ADMIN_COMPANY_ROLE = keccak256("ADMIN_COMPANY_ROLE");
 
     //============================ERRORs================================
     error User__NoRole(address account);

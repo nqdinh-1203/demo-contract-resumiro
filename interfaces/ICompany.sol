@@ -15,8 +15,8 @@ interface ICompany {
 
     function isCreator(uint _id, address caller) external view returns (bool);
 
-    function isExistedCompanyRecruiter(
-        address _recruiterAddress,
+    function isExistedCompanyUser(
+        address _userAddress,
         uint _companyId
     ) external view returns (bool);
 
@@ -45,21 +45,18 @@ interface ICompany {
 
     function deleteCompany(uint _id) external;
 
-    function connectCompanyRecruiter(
-        address _recruiterAddress,
+    function connectCompanyUser(address _userAddress, uint _companyId) external;
+
+    function disconnectCompanyUser(
+        address _userAddress,
         uint _companyId
     ) external;
 
-    function disconnectCompanyRecruiter(
-        address _recruiterAddress,
-        uint _companyId
-    ) external;
-
-    function getAllCompaniesConnectedRecruiter(
-        address _recruiterAddress
+    function getAllCompaniesConnectedUser(
+        address _userAddress
     ) external view returns (AppCompany[] memory);
 
-    function getAllRecruitersConnectedCompany(
+    function getAllUsersConnectedCompany(
         uint _companyId
-    ) external view returns (address[] memory);
+    ) external view returns (IUser.AppUser[] memory);
 }

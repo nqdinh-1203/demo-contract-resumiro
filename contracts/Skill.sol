@@ -11,6 +11,8 @@ contract Skill is ISkill {
 
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
+    bytes32 public constant ADMIN_COMPANY_ROLE =
+        keccak256("ADMIN_COMPANY_ROLE");
 
     //=============================ATTRIBUTES==========================================
     EnumerableSet.UintSet skillIds;
@@ -43,15 +45,25 @@ contract Skill is ISkill {
 
     //=============================ERRORS==========================================
     error User__NoRole(address account);
+    error User__NotPermit(address account);
 
-    error AlreadyExistedSkill(uint id, string name);
-    error NotExistedSkill(uint id);
+    error Skill__AlreadyExisted(uint id, string name);
+    error Skill__NotExisted(uint id);
 
-    error NotCandidate(address user_address);
-    error NotConnectedSkillCandidate(uint skill_id, address candidate_address);
-    error NotConnectedSkillJob(uint skill_id, uint job_id);
+    error Candidate__NotExisted(address user_address);
+
+    error Skill_Candidate__NotConnected(
+        uint skill_id,
+        address candidate_address
+    );
+    error Skill_Candidate__ForSelf(
+        address candidate_address,
+        address origin_address
+    );
+    error Skill_Job__NotConnected(uint skill_id, uint job_id);
 
     error NotExistedJob(uint job_id);
+    error Caller_Job__NotOwn(uint job_id, address caller);
 
     //=============================METHODS==========================================
     modifier onlyRole(bytes32 _role) {
@@ -61,11 +73,40 @@ contract Skill is ISkill {
         _;
     }
 
+    modifier onlyRecruiterAndAdminCom() {
+        if (
+            !(user.hasRole(tx.origin, RECRUITER_ROLE) &&
+                user.hasRole(tx.origin, ADMIN_COMPANY_ROLE))
+        ) {
+            revert User__NotPermit({account: tx.origin});
+        }
+        _;
+    }
+
+    modifier onlySelf(address _account) {
+        if (_account != tx.origin) {
+            revert Skill_Candidate__ForSelf({
+                candidate_address: _account,
+                origin_address: tx.origin
+            });
+        }
+        _;
+    }
+
+    modifier onlyOwnJob(uint _jobId) {
+        IJob.AppJob memory j = job.getJob(_jobId);
+        if (j.owner != tx.origin) {
+            revert Caller_Job__NotOwn({job_id: _jobId, caller: tx.origin});
+        }
+        _;
+    }
+
     //====================SKILLS============================
     // skill id must not existed -> done✅
     function _addSkill(string memory _name) internal {
         uint _id = skillCounter;
         skillCounter++;
+
         skills[_id] = AppSkill(_id, _name);
         skillIds.add(_id);
 
@@ -75,7 +116,7 @@ contract Skill is ISkill {
     // skill id must existed -> done✅
     function _deleteSkill(uint _id) internal {
         if (!skillIds.contains(_id)) {
-            revert NotExistedSkill({id: _id});
+            revert Skill__NotExisted({id: _id});
         }
 
         AppSkill memory skill = skills[_id];
@@ -105,18 +146,14 @@ contract Skill is ISkill {
     function _connectCandidateSkill(
         address _candidate,
         uint[] memory _skills
-    ) internal onlyRole(CANDIDATE_ROLE) {
-        if (tx.origin != _candidate) {
-            revert("");
-        }
-
+    ) internal onlyRole(CANDIDATE_ROLE) onlySelf(_candidate) {
         if (!(user.isExisted(_candidate) && user.hasType(_candidate, 0))) {
-            revert NotCandidate({user_address: _candidate});
+            revert Candidate__NotExisted({user_address: _candidate});
         }
 
         for (uint i = 0; i < _skills.length; i++) {
             if (!skillIds.contains(_skills[i])) {
-                revert NotExistedSkill({id: _skills[i]});
+                revert Skill__NotExisted({id: _skills[i]});
             }
         }
         for (uint i = 0; i < _skills.length; i++) {
@@ -136,20 +173,16 @@ contract Skill is ISkill {
     function _disconnectCandidateSkill(
         address _candidate,
         uint[] memory _skills
-    ) internal onlyRole(CANDIDATE_ROLE) {
-        if (tx.origin != _candidate) {
-            revert("");
-        }
-
+    ) internal onlyRole(CANDIDATE_ROLE) onlySelf(_candidate) {
         if (!(user.isExisted(_candidate) && user.hasType(_candidate, 0))) {
-            revert NotCandidate({user_address: _candidate});
+            revert Candidate__NotExisted({user_address: _candidate});
         }
         for (uint i = 0; i < _skills.length; i++) {
             if (!skillIds.contains(_skills[i])) {
-                revert NotExistedSkill({id: _skills[i]});
+                revert Skill__NotExisted({id: _skills[i]});
             }
             if (!skillsOfCandidate[_candidate].contains(_skills[i])) {
-                revert NotConnectedSkillCandidate({
+                revert Skill_Candidate__NotConnected({
                     skill_id: _skills[i],
                     candidate_address: _candidate
                 });
@@ -185,11 +218,11 @@ contract Skill is ISkill {
     function _connectJobSkill(
         uint[] memory _skills,
         uint _job
-    ) internal onlyRole(RECRUITER_ROLE) {
+    ) internal onlyRecruiterAndAdminCom onlyOwnJob(_job) {
         _disconnectAllJobSkill(_job);
         for (uint i = 0; i < _skills.length; i++) {
             if (!skillIds.contains(_skills[i])) {
-                revert NotExistedSkill({id: _skills[i]});
+                revert Skill__NotExisted({id: _skills[i]});
             }
         }
         if (!job.isExistedJob(_job)) {
@@ -205,7 +238,9 @@ contract Skill is ISkill {
         emit ConnectJobSkill(_skills, _job);
     }
 
-    function _disconnectAllJobSkill(uint _job) internal {
+    function _disconnectAllJobSkill(
+        uint _job
+    ) internal onlyRecruiterAndAdminCom onlyOwnJob(_job) {
         for (uint i = 0; i < skillIds.length(); i++) {
             if (skillsOfJob[_job].contains(skillIds.at(i))) {
                 skillsOfJob[_job].remove(skillIds.at(i));
@@ -219,17 +254,17 @@ contract Skill is ISkill {
     function _disconnectJobSkill(
         uint[] memory _skills,
         uint _job
-    ) internal onlyRole(RECRUITER_ROLE) {
+    ) internal onlyRecruiterAndAdminCom onlyOwnJob(_job) {
         if (!job.isExistedJob(_job)) {
             revert NotExistedJob({job_id: _job});
         }
 
         for (uint i = 0; i < _skills.length; i++) {
             if (!skillIds.contains(_skills[i])) {
-                revert NotExistedSkill({id: _skills[i]});
+                revert Skill__NotExisted({id: _skills[i]});
             }
             if (!skillsOfJob[_job].contains(_skills[i])) {
-                revert NotConnectedSkillJob({
+                revert Skill_Job__NotConnected({
                     skill_id: _skills[i],
                     job_id: _job
                 });

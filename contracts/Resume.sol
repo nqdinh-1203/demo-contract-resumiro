@@ -6,8 +6,6 @@ import "../interfaces/IResume.sol";
 import "./library/UintArray.sol";
 import "./library/EnumrableSet.sol";
 
-// import "./abstract-contract/AccessControl.sol";
-
 contract Resume is IResume {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -63,6 +61,10 @@ contract Resume is IResume {
     error Resume__AlreadyExisted(uint id);
 
     error Candidate_Resume__NotOwned(address candidate_address, uint id);
+    error Candidate_Resume__ForSelf(
+        address candidate_address,
+        address origin_address
+    );
 
     error Recruiter__NotExisted(address user_address);
     error Candidate__NotExisted(address user_address);
@@ -74,6 +76,26 @@ contract Resume is IResume {
     modifier onlyRole(bytes32 _role) {
         if (!user.hasRole(tx.origin, _role)) {
             revert User__NoRole({account: tx.origin});
+        }
+        _;
+    }
+
+    modifier onlyOwner(uint _id) {
+        if (!_isOwnerOfResume(tx.origin, _id)) {
+            revert Candidate_Resume__NotOwned({
+                id: _id,
+                candidate_address: tx.origin
+            });
+        }
+        _;
+    }
+
+    modifier onlySelf(address _account) {
+        if (_account != tx.origin) {
+            revert Candidate_Resume__ForSelf({
+                candidate_address: _account,
+                origin_address: tx.origin
+            });
         }
         _;
     }
@@ -122,11 +144,7 @@ contract Resume is IResume {
         address _candidateAddress,
         string memory _title,
         uint _createAt
-    ) internal onlyRole(CANDIDATE_ROLE) {
-        if (_candidateAddress != tx.origin) {
-            revert("");
-        }
-
+    ) internal onlyRole(CANDIDATE_ROLE) onlySelf(_candidateAddress) {
         uint _id = resumeCounter;
         resumeCounter++;
 
@@ -197,16 +215,11 @@ contract Resume is IResume {
     // resume must existed -> done✅
     // caller must own resume -> later⏳ -> done✅
     // caller must be candidate in user contract -> later⏳
-    function _deleteResume(uint _id) internal onlyRole(CANDIDATE_ROLE) {
+    function _deleteResume(
+        uint _id
+    ) internal onlyRole(CANDIDATE_ROLE) onlyOwner(_id) {
         if (!resumeIds.contains(_id)) {
             revert Resume__NotExisted({id: _id});
-        }
-
-        if (!_isOwnerOfResume(msg.sender, _id)) {
-            revert Candidate_Resume__NotOwned({
-                id: _id,
-                candidate_address: msg.sender
-            });
         }
 
         AppResume memory resume = _getResume(_id);
@@ -274,20 +287,15 @@ contract Resume is IResume {
     function _connectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
-    ) internal onlyRole(CANDIDATE_ROLE) {
+    ) internal onlyRole(CANDIDATE_ROLE) onlyOwner(_resumeId) {
         if (!resumeIds.contains(_resumeId)) {
             revert Resume__NotExisted({id: _resumeId});
         }
-        if (!_isOwnerOfResume(msg.sender, _resumeId)) {
-            revert Candidate_Resume__NotOwned({
-                id: _resumeId,
-                candidate_address: msg.sender
-            });
-        }
+
         if (
-            !((user.isExisted(_recruiterAddress) &&
-                user.hasType(_recruiterAddress, 1)) ||
-                user.hasType(_recruiterAddress, 2))
+            !(user.isExisted(_recruiterAddress) &&
+                (user.hasType(_recruiterAddress, 1) ||
+                    user.hasType(_recruiterAddress, 2)))
         ) {
             revert Recruiter__NotExisted({user_address: _recruiterAddress});
         }
@@ -315,20 +323,14 @@ contract Resume is IResume {
     function _disconnectResumeRecruiter(
         address _recruiterAddress,
         uint _resumeId
-    ) internal onlyRole(CANDIDATE_ROLE) {
+    ) internal onlyRole(CANDIDATE_ROLE) onlyOwner(_resumeId) {
         if (!resumeIds.contains(_resumeId)) {
             revert Resume__NotExisted({id: _resumeId});
         }
-        if (!_isOwnerOfResume(tx.origin, _resumeId)) {
-            revert Candidate_Resume__NotOwned({
-                id: _resumeId,
-                candidate_address: tx.origin
-            });
-        }
         if (
-            !((user.isExisted(_recruiterAddress) &&
-                user.hasType(_recruiterAddress, 1)) ||
-                user.hasType(_recruiterAddress, 2))
+            !(user.isExisted(_recruiterAddress) &&
+                (user.hasType(_recruiterAddress, 1) ||
+                    user.hasType(_recruiterAddress, 2)))
         ) {
             revert Recruiter__NotExisted({user_address: _recruiterAddress});
         }

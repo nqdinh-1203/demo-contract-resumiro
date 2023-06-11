@@ -8,24 +8,37 @@ import "./abstract-contract/AccessControl.sol";
 contract User is IUser, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    //=============================ATTRIBUTES==========================================
+    //=============================[ATTRIBUTES]==========================================
     EnumerableSet.AddressSet userAddresses;
     EnumerableSet.AddressSet candidateAddresses;
     EnumerableSet.AddressSet recruiterAddresses;
-    EnumerableSet.AddressSet verifierAddresses;
+    // EnumerableSet.AddressSet verifierAddresses;
     EnumerableSet.AddressSet adminRecruiterAddresses;
 
     mapping(address => AppUser) users;
 
-    //=============================EVENTS==========================================
+    //=============================[EVENTS]==========================================
     event AddUser(address indexed user_address, UserType user_type);
     event DeleteUser(address indexed user_address, UserType user_type);
 
-    //=============================ERRORS==========================================
-    error AlreadyExistedUser(address user_address, UserType user_type);
-    error NotExistedUser(address user_address);
+    //=============================[ERRORS]==========================================
+    error User__AlreadyExisted(address user_address, UserType user_type);
+    error User__NotExisted(address user_address);
 
-    //=============================METHODS==========================================
+    error User__NoType(uint user_type);
+    error User__ForSelf(address user_address, address origin_address);
+
+    //===============================[METHODS]==========================================
+    modifier onlySelf(address _account) {
+        if (_account != tx.origin) {
+            revert User__ForSelf({
+                user_address: _account,
+                origin_address: tx.origin
+            });
+        }
+        _;
+    }
+
     constructor() {
         _setRole(msg.sender, ADMIN_ROLE);
     }
@@ -69,19 +82,21 @@ contract User is IUser, AccessControl {
     }
 
     // new ⭐ -> change AppUser[] to address[]
-    function _getAllVerifiers() internal view returns (address[] memory) {
-        address[] memory arrUser = new address[](verifierAddresses.length());
+    // function _getAllVerifiers() internal view returns (address[] memory) {
+    //     address[] memory arrUser = new address[](verifierAddresses.length());
 
-        for (uint i = 0; i < verifierAddresses.length(); i++) {
-            arrUser[i] = users[verifierAddresses.at(i)].accountAddress;
-        }
+    //     for (uint i = 0; i < verifierAddresses.length(); i++) {
+    //         arrUser[i] = users[verifierAddresses.at(i)].accountAddress;
+    //     }
 
-        return arrUser;
-    }
+    //     return arrUser;
+    // }
 
     // new ⭐ -> change AppUser[] to address[]
-    function _getAllAdminRecruiters() internal view returns (address[] memory) {
-        address[] memory arrUser = new address[](adminRecruiterAddresses.length());
+    function _getAllAdminCompany() internal view returns (address[] memory) {
+        address[] memory arrUser = new address[](
+            adminRecruiterAddresses.length()
+        );
 
         for (uint i = 0; i < adminRecruiterAddresses.length(); i++) {
             arrUser[i] = users[adminRecruiterAddresses.at(i)].accountAddress;
@@ -92,17 +107,21 @@ contract User is IUser, AccessControl {
 
     // only admin -> later⏳ -> done✅
     // user must not existed -> done✅
-    // user type just in enum UserType
+    // user type just in enum UserType -> done✅
     function _addUser(
         address _userAddress,
         uint _type
-    ) internal onlyRole(ADMIN_ROLE) {
+    ) internal onlySelf(_userAddress) {
         bool existed = userAddresses.contains(_userAddress);
         if (existed) {
-            revert AlreadyExistedUser({
+            revert User__AlreadyExisted({
                 user_address: _userAddress,
-                user_type: UserType(_type)
+                user_type: users[_userAddress].userType
             });
+        }
+
+        if (_type >= 3) {
+            revert User__NoType({user_type: _type});
         }
 
         users[_userAddress] = AppUser(_userAddress, UserType(_type));
@@ -113,17 +132,11 @@ contract User is IUser, AccessControl {
         if (_type == 0) {
             _setRole(_userAddress, CANDIDATE_ROLE);
             candidateAddresses.add(_userAddress);
-        } 
-        else if (_type == 1) {
+        } else if (_type == 1) {
             _setRole(_userAddress, RECRUITER_ROLE);
             recruiterAddresses.add(_userAddress);
-        }
-        else if (_type == 2) {
-            _setRole(_userAddress, VERIFIER_ROLE);
-            verifierAddresses.add(_userAddress);
-        }
-        else if (_type == 3) {
-            _setRole(_userAddress, ADMIN_RECRUITER_ROLE);
+        } else if (_type == 2) {
+            _setRole(_userAddress, ADMIN_COMPANY_ROLE);
             adminRecruiterAddresses.add(_userAddress);
         }
 
@@ -135,7 +148,7 @@ contract User is IUser, AccessControl {
     function _deleteUser(address _userAddress) internal onlyRole(ADMIN_ROLE) {
         bool existed = userAddresses.contains(_userAddress);
         if (!existed) {
-            revert NotExistedUser({user_address: _userAddress});
+            revert User__NotExisted({user_address: _userAddress});
         }
 
         AppUser memory deletedUser = _getUser(_userAddress);
@@ -146,24 +159,18 @@ contract User is IUser, AccessControl {
         if (_hasRole(_userAddress, CANDIDATE_ROLE)) {
             _revokeRole(_userAddress, CANDIDATE_ROLE);
             candidateAddresses.remove(_userAddress);
-        } 
-        else if (_hasRole(_userAddress, RECRUITER_ROLE)) {
+        } else if (_hasRole(_userAddress, RECRUITER_ROLE)) {
             _revokeRole(_userAddress, RECRUITER_ROLE);
             recruiterAddresses.remove(_userAddress);
-        }
-        else if (_hasRole(_userAddress, VERIFIER_ROLE)) {
-            _revokeRole(_userAddress, VERIFIER_ROLE);
-            verifierAddresses.remove(_userAddress);
-        }
-        else if (_hasRole(_userAddress, ADMIN_RECRUITER_ROLE)) {
-            _revokeRole(_userAddress, ADMIN_RECRUITER_ROLE);
+        } else if (_hasRole(_userAddress, ADMIN_COMPANY_ROLE)) {
+            _revokeRole(_userAddress, ADMIN_COMPANY_ROLE);
             adminRecruiterAddresses.remove(_userAddress);
         }
 
         emit DeleteUser(_userAddress, deletedUser.userType);
     }
 
-    //=============================FOR INTERFACE==========================================
+    //=============================[FOR INTERFACE]==========================================
     function hasRole(
         address _account,
         bytes32 _role
@@ -206,12 +213,12 @@ contract User is IUser, AccessControl {
         return _getAllRecruiters();
     }
 
-    function getAllVerifiers() external view returns (address[] memory) {
-        return _getAllVerifiers();
-    }
+    // function getAllVerifiers() external view returns (address[] memory) {
+    //     return _getAllVerifiers();
+    // }
 
-    function getAllAdminRecruiters() external view returns (address[] memory) {
-        return _getAllAdminRecruiters();
+    function getAllAdminCompany() external view returns (address[] memory) {
+        return _getAllAdminCompany();
     }
 
     function addUser(address _userAddress, uint _type) external {

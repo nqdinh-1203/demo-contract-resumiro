@@ -10,7 +10,8 @@ import "./library/EnumrableSet.sol";
 contract Job is IJob {
     using EnumerableSet for EnumerableSet.UintSet;
 
-    bytes32 public constant ADMIN_ROLE = 0x00;
+    bytes32 public constant ADMIN_COMPANY_ROLE =
+        keccak256("ADMIN_COMPANY_ROLE");
     bytes32 public constant CANDIDATE_ROLE = keccak256("CANDIDATE_ROLE");
     bytes32 public constant RECRUITER_ROLE = keccak256("RECRUITER_ROLE");
 
@@ -19,7 +20,7 @@ contract Job is IJob {
     uint jobCounter = 1;
     mapping(uint => AppJob) internal jobs;
     mapping(address => EnumerableSet.UintSet) internal candidateApplyJob;
-    mapping(uint => address) internal recruiterOwnJob;
+    // mapping(uint => address) internal recruiterOwnJob;
     ICompany internal company;
 
     IUser internal user;
@@ -30,51 +31,6 @@ contract Job is IJob {
     }
 
     //=============================EVENTS==========================================
-    // event AddJob(
-    //     uint id,
-    //     string title,
-    //     string location,
-    //     string job_type,
-    //     uint experience,
-    //     string requirements,
-    //     string benefits,
-    //     uint create_at,
-    //     uint update_at,
-    //     uint companyId,
-    //     uint salary,
-    //     string field,
-    //     address owner_address
-    // );
-    // event UpdateJob(
-    //     uint id,
-    //     string title,
-    //     string location,
-    //     string job_type,
-    //     uint experience,
-    //     string requirements,
-    //     string benefits,
-    //     uint create_at,
-    //     uint update_at,
-    //     uint companyId,
-    //     uint salary,
-    //     string field,
-    //     address owner_address
-    // );
-    // event DeleteJob(
-    //     uint id,
-    //     string title,
-    //     string location,
-    //     string job_type,
-    //     uint experience,
-    //     string requirements,
-    //     string benefits,
-    //     uint create_at,
-    //     uint update_at,
-    //     uint companyId,
-    //     uint salary,
-    //     string field,
-    //     address owner_address
-    // );
     event AddJob(AppJob job);
     event UpdateJob(AppJob job);
     event DeleteJob(AppJob job);
@@ -93,13 +49,18 @@ contract Job is IJob {
 
     //=============================ERRORS==========================================
     error User__NoRole(address account);
+    error User__NotPermit(address account);
 
     error Job__NotExisted(uint id);
     error Job__AlreadyExisted(uint id);
 
     error Recruiter_Company__NotIn(address recruiter_address, uint company_id);
 
-    error Recruiter_Job__NotOwned(address recruiter_address, uint id);
+    error Recruiter_Job__NotOwned(address recruiter_address, uint job_id);
+    error Recruiter_Job__ForSelf(
+        address recruiter_address,
+        address origin_address
+    );
 
     error Candidate__NotExisted(address user_address);
     error Recruiter__NotExisted(address user_address);
@@ -114,13 +75,43 @@ contract Job is IJob {
         }
         _;
     }
-    //======================JOBS==========================
 
+    modifier onlyRecruiterAndAdminCom() {
+        if (
+            !(user.hasRole(tx.origin, RECRUITER_ROLE) &&
+                user.hasRole(tx.origin, ADMIN_COMPANY_ROLE))
+        ) {
+            revert User__NotPermit({account: tx.origin});
+        }
+        _;
+    }
+
+    modifier onlySelf(address account) {
+        if (account != tx.origin) {
+            revert Recruiter_Job__ForSelf({
+                recruiter_address: account,
+                origin_address: tx.origin
+            });
+        }
+        _;
+    }
+
+    modifier onlyOwner(uint _id) {
+        if (!_isOwnerOfJob(tx.origin, _id)) {
+            revert Recruiter_Job__NotOwned({
+                recruiter_address: tx.origin,
+                job_id: _id
+            });
+        }
+        _;
+    }
+
+    //======================JOBS==========================
     function _isOwnerOfJob(
         address _recruiterAddress,
         uint _jobId
     ) internal view returns (bool) {
-        return recruiterOwnJob[_jobId] == _recruiterAddress;
+        return jobs[_jobId].owner == _recruiterAddress;
     }
 
     function _getJob(uint _id) internal view returns (AppJob memory) {
@@ -154,39 +145,24 @@ contract Job is IJob {
     // only recruiter -> later⏳ -> done✅
     // param _recruiterAddress must equal msg.sender -> later⏳ -> done✅
     // job id must not existed -> done✅
-    // just for recruiter in user contract -> done✅
+    // just for recruiter/admin-company in user contract -> done✅
     // recruiter must connected with company id -> done✅
     function _addJob(
-        // string memory _title,
-        // string memory _location,
-        // string memory _jobType,
-        // uint _experience,
-        // string memory _requirements,
-        // string memory _benefits,
-        // uint _createAt,
-        // uint _updateAt,
-        // uint _companyId,
-        // uint _salary,
-        // string memory _field,
-        // address _recruiterAddress
         AppJob memory _job
-    ) internal onlyRole(RECRUITER_ROLE) {
-        if (_job.owner != tx.origin) {
-            revert("");
-        }
-
+    ) internal onlyRecruiterAndAdminCom onlySelf(_job.owner) {
         uint _id = jobCounter;
         jobCounter++;
+
         if (jobIds.contains(_id)) {
             revert Job__AlreadyExisted({id: _id});
         }
         if (
-            !((user.isExisted(_job.owner) && user.hasType(_job.owner, 1)) ||
-                user.hasType(_job.owner, 2))
+            !(user.isExisted(_job.owner) &&
+                (user.hasType(_job.owner, 1) || user.hasType(_job.owner, 2)))
         ) {
             revert Recruiter__NotExisted({user_address: _job.owner});
         }
-        if (!company.isExistedCompanyRecruiter(_job.owner, _job.companyId)) {
+        if (!company.isExistedCompanyUser(_job.owner, _job.companyId)) {
             revert Recruiter_Company__NotIn({
                 recruiter_address: _job.owner,
                 company_id: _job.companyId
@@ -210,26 +186,7 @@ contract Job is IJob {
         );
         jobIds.add(_id);
 
-        // AppJob memory job = _getJob(_id);
-        recruiterOwnJob[_id] = _job.owner;
-        // address owner = recruiterOwnJob[_id];
-
-        emit AddJob(
-            // _id,
-            // _job.title,
-            // _job.location,
-            // _job.jobType,
-            // _job.experience,
-            // _job.requirements,
-            // _job.benefits,
-            // _job.createAt,
-            // _job.updateAt,
-            // _job.companyId,
-            // _job.salary,
-            // _job.field,
-            // _job.owner
-            _job
-        );
+        emit AddJob(_job);
     }
 
     // only recruiter -> later⏳ -> done✅
@@ -237,19 +194,8 @@ contract Job is IJob {
     // only owner of job -> later⏳ -> done✅
     // recruiter must connected with update company -> later⏳ -> done✅
     function _updateJob(
-        // uint _id,
-        // string memory _title,
-        // string memory _location,
-        // string memory _jobType,
-        // uint _experience,
-        // string memory _requirements,
-        // string memory _benefits,
-        // uint _updateAt,
-        // uint _companyId,
-        // uint _salary,
-        // string memory _field
         AppJob memory _job
-    ) internal onlyRole(RECRUITER_ROLE) {
+    ) internal onlyRecruiterAndAdminCom onlyOwner(_job.id) {
         if (_job.owner != tx.origin) {
             revert("");
         }
@@ -258,14 +204,7 @@ contract Job is IJob {
             revert Job__NotExisted({id: _job.id});
         }
 
-        if (!_isOwnerOfJob(tx.origin, _job.id)) {
-            revert Recruiter_Job__NotOwned({
-                recruiter_address: tx.origin,
-                id: _job.id
-            });
-        }
-
-        if (!company.isExistedCompanyRecruiter(tx.origin, _job.companyId)) {
+        if (!company.isExistedCompanyUser(tx.origin, _job.companyId)) {
             revert Recruiter_Company__NotIn({
                 recruiter_address: tx.origin,
                 company_id: _job.companyId
@@ -285,61 +224,25 @@ contract Job is IJob {
 
         // AppJob memory job = _getJob(_job.id);
         // address owner = recruiterOwnJob[_job.id];
-        emit UpdateJob(
-            // _job.id,
-            // _job.title,
-            // _job.location,
-            // _job.jobType,
-            // _job.experience,
-            // _job.requirements,
-            // _job.benefits,
-            // _job.createAt,
-            // _job.updateAt,
-            // _job.companyId,
-            // _job.salary,
-            // _job.field,
-            // _job.owner
-            _job
-        );
+        emit UpdateJob(_job);
     }
 
     // only recruiter -> later⏳ -> done✅
     // job id must existed -> done✅
     // only owner of job -> later⏳ -> done✅
-    function _deleteJob(uint _id) internal onlyRole(RECRUITER_ROLE) {
+    function _deleteJob(
+        uint _id
+    ) internal onlyRecruiterAndAdminCom onlyOwner(_id) {
         if (!jobIds.contains(_id)) {
             revert Job__NotExisted({id: _id});
         }
 
-        if (!_isOwnerOfJob(tx.origin, _id)) {
-            revert Recruiter_Job__NotOwned({
-                recruiter_address: tx.origin,
-                id: _id
-            });
-        }
-
         AppJob memory job = _getJob(_id);
-        // address ownerOfJob = recruiterOwnJob[_id];
+
         jobIds.remove(_id);
         delete jobs[_id];
-        delete recruiterOwnJob[_id];
 
-        emit DeleteJob(
-            // _id,
-            // job.title,
-            // job.location,
-            // job.jobType,
-            // job.experience,
-            // job.requirements,
-            // job.benefits,
-            // job.createAt,
-            // job.updateAt,
-            // job.companyId,
-            // job.salary,
-            // job.field,
-            // ownerOfJob
-            job
-        );
+        emit DeleteJob(job);
     }
 
     //======================JOB-CANDIDATE==========================
@@ -352,11 +255,7 @@ contract Job is IJob {
     function _connectJobCandidate(
         address _candidateAddress,
         uint _jobId
-    ) internal onlyRole(CANDIDATE_ROLE) {
-        if (_candidateAddress != tx.origin) {
-            revert("");
-        }
-
+    ) internal onlyRole(CANDIDATE_ROLE) onlySelf(_candidateAddress) {
         if (!jobIds.contains(_jobId)) {
             revert Job__NotExisted({id: _jobId});
         }
@@ -379,11 +278,12 @@ contract Job is IJob {
         //     "Job-Applicant: Candidate already applied this job"
         // );
 
+        AppJob memory job = jobs[_jobId];
+
         candidateApplyJob[_candidateAddress].add(_jobId);
-        address owner = recruiterOwnJob[_jobId];
         bool isApplied = candidateApplyJob[_candidateAddress].contains(_jobId);
 
-        emit ApplyJob(_candidateAddress, owner, _jobId, isApplied);
+        emit ApplyJob(_candidateAddress, job.owner, _jobId, isApplied);
     }
 
     // only candidate -> later⏳ -> done✅
@@ -394,10 +294,7 @@ contract Job is IJob {
     function _disconnectJobCandidate(
         address _candidateAddress,
         uint _jobId
-    ) internal onlyRole(CANDIDATE_ROLE) {
-        if (_candidateAddress != tx.origin) {
-            revert("");
-        }
+    ) internal onlyRole(CANDIDATE_ROLE) onlySelf(_candidateAddress) {
         if (!jobIds.contains(_jobId)) {
             revert Job__NotExisted({id: _jobId});
         }
@@ -414,11 +311,12 @@ contract Job is IJob {
             });
         }
 
+        AppJob memory job = jobs[_jobId];
+
         candidateApplyJob[_candidateAddress].remove(_jobId);
-        address owner = recruiterOwnJob[_jobId];
         bool isApplied = candidateApplyJob[_candidateAddress].contains(_jobId);
 
-        emit DisapplyJob(_candidateAddress, owner, _jobId, isApplied);
+        emit DisapplyJob(_candidateAddress, job.owner, _jobId, isApplied);
     }
 
     function _getAllAppliedJobsOf(
@@ -445,11 +343,8 @@ contract Job is IJob {
         );
 
         for (uint i = 0; i < candidateArr.length; i++) {
-            if (
-                candidateApplyJob[candidateArr[i]].contains(
-                    _jobId
-                )
-            ) appliedCandidateArr[i] = candidateArr[i];
+            if (candidateApplyJob[candidateArr[i]].contains(_jobId))
+                appliedCandidateArr[i] = candidateArr[i];
         }
 
         return appliedCandidateArr;
@@ -485,66 +380,12 @@ contract Job is IJob {
         return jobCounter - 1;
     }
 
-    function addJob(
-        // string memory _title,
-        // string memory _location,
-        // string memory _jobType,
-        // uint _experience,
-        // string memory _requirements,
-        // string memory _benefits,
-        // uint _createAt,
-        // uint _updateAt,
-        // uint _companyId,
-        // uint _salary,
-        // string memory _field,
-        // address _recruiterAddress
-        AppJob memory _job
-    ) external {
-        _addJob(
-            // _title,
-            // _location,
-            // _jobType,
-            // _experience,
-            // _requirements,
-            // _benefits,
-            // _createAt,
-            // _updateAt,
-            // _companyId,
-            // _salary,
-            // _field,
-            // _recruiterAddress
-            _job
-        );
+    function addJob(AppJob memory _job) external {
+        _addJob(_job);
     }
 
-    function updateJob(
-        // uint _id,
-        // string memory _title,
-        // string memory _location,
-        // string memory _jobType,
-        // uint _experience,
-        // string memory _requirements,
-        // string memory _benefits,
-        // uint _updateAt,
-        // uint _companyId,
-        // uint _salary,
-        // string memory _field
-        AppJob memory _job
-    ) external {
-        _updateJob(
-            // _id,
-            // _title,
-            // _location,
-            // _jobType,
-            // _experience,
-            // _requirements,
-            // _benefits,
-            // _updateAt,
-            // _companyId,
-            // _salary,
-            // _field
-            _job
-        );
+    function updateJob(AppJob memory _job) external {
+        _updateJob(_job);
     }
 
     function deleteJob(uint _id) external {
