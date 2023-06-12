@@ -61,7 +61,7 @@ contract Resume is IResume {
     error Resume__AlreadyExisted(uint id);
 
     error Candidate_Resume__NotOwned(address candidate_address, uint id);
-    error Candidate_Resume__ForSelf(
+    error Candidate_Resume__NotForSelf(
         address candidate_address,
         address origin_address
     );
@@ -92,7 +92,7 @@ contract Resume is IResume {
 
     modifier onlySelf(address _account) {
         if (_account != tx.origin) {
-            revert Candidate_Resume__ForSelf({
+            revert Candidate_Resume__NotForSelf({
                 candidate_address: _account,
                 origin_address: tx.origin
             });

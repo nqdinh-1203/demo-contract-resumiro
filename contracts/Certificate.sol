@@ -67,13 +67,13 @@ contract Certificate is ICertificate {
     error Cert__Rejected(uint id);
     error Cert__NotPending(uint id);
 
-    error Cert_Candidate__NotOwned(uint id, address candidate_address);
-    error Cert_Candidate__ForSelf(
+    error Cert_Candidate__NotOwned(uint cert_id, address candidate_address);
+    error Cert_Candidate__NotForSelf(
         address candidate_address,
         address origin_address
     );
     error Cert_Verifier__NotVerifierOfCertificate(
-        uint id,
+        uint cert_id,
         address verifier_address
     );
 
@@ -94,10 +94,10 @@ contract Certificate is ICertificate {
     }
 
     modifier onlyOwner(uint _id) {
-        if (certs[_id].candidate == tx.origin) {
-            revert Cert_Verifier__NotVerifierOfCertificate({
-                id: _id,
-                verifier_address: tx.origin
+        if (certs[_id].candidate != tx.origin) {
+            revert Cert_Candidate__NotOwned({
+                cert_id: _id,
+                candidate_address: tx.origin
             });
         }
         _;
@@ -105,7 +105,7 @@ contract Certificate is ICertificate {
 
     modifier onlySelf(address account) {
         if (account != tx.origin) {
-            revert Cert_Candidate__ForSelf({
+            revert Cert_Candidate__NotForSelf({
                 candidate_address: account,
                 origin_address: tx.origin
             });
@@ -160,6 +160,12 @@ contract Certificate is ICertificate {
                 user.hasType(_verifierAddress, 2))
         ) {
             revert Verifier__NotExisted({user_address: _verifierAddress});
+        }
+        if (!company.isCreator(_companyId, _verifierAddress)) {
+            revert Verifier__NotCreator({
+                company_id: _companyId,
+                verifier_address: _verifierAddress
+            });
         }
 
         certs[_id] = AppCertificate(
@@ -249,7 +255,7 @@ contract Certificate is ICertificate {
 
         if (!_isVerifierOfCertificate(tx.origin, _id)) {
             revert Cert_Verifier__NotVerifierOfCertificate({
-                id: _id,
+                cert_id: _id,
                 verifier_address: tx.origin
             });
         }

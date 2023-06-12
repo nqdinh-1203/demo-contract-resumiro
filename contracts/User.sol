@@ -26,12 +26,12 @@ contract User is IUser, AccessControl {
     error User__NotExisted(address user_address);
 
     error User__NoType(uint user_type);
-    error User__ForSelf(address user_address, address origin_address);
+    error User__NotForSelf(address user_address, address origin_address);
 
     //===============================[METHODS]==========================================
     modifier onlySelf(address _account) {
         if (_account != tx.origin) {
-            revert User__ForSelf({
+            revert User__NotForSelf({
                 user_address: _account,
                 origin_address: tx.origin
             });

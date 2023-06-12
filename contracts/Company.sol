@@ -89,14 +89,14 @@ contract Company is ICompany {
     }
 
     modifier onlyCreator(uint _id) {
-        if (_isCreator(_id, tx.origin)) {
+        if (!_isCreator(_id, tx.origin)) {
             revert Company__NotCreator({company_id: _id, caller: tx.origin});
         }
         _;
     }
 
     function _isCreator(uint _id, address caller) internal view returns (bool) {
-        return companies[_id].creator != caller;
+        return companies[_id].creator == caller;
     }
 
     function _getCompany(uint _id) internal view returns (AppCompany memory) {
@@ -227,11 +227,7 @@ contract Company is ICompany {
         if (!companyIds.contains(_companyId)) {
             revert Company__NotExisted({company_id: _companyId});
         }
-        if (
-            !(user.isExisted(_userAddress) &&
-                (user.hasType(_userAddress, 0) ||
-                    user.hasType(_userAddress, 1)))
-        ) {
+        if (!(user.isExisted(_userAddress))) {
             revert User__NotExisted({user_address: _userAddress});
         }
         if (_isExistedCompanyUser(_userAddress, _companyId)) {
@@ -263,11 +259,7 @@ contract Company is ICompany {
         if (!companyIds.contains(_companyId)) {
             revert Company__NotExisted({company_id: _companyId});
         }
-        if (
-            !(user.isExisted(_userAddress) &&
-                (user.hasType(_userAddress, 0) ||
-                    user.hasType(_userAddress, 1)))
-        ) {
+        if (!(user.isExisted(_userAddress))) {
             revert User__NotExisted({user_address: _userAddress});
         }
         if (!_isExistedCompanyUser(_userAddress, _companyId)) {

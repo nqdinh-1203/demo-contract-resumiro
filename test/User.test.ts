@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 
 describe("User", function () {
     async function deployFixture() {
-        const [deployer, candidate, recruiter, verifier, admin_recruiter, admin] = await ethers.getSigners();
+        const [deployer, candidate, recruiter, admin_company, admin] = await ethers.getSigners();
 
         const userFactory = await ethers.getContractFactory("User", deployer);
         const userContract = await userFactory.deploy();
@@ -13,10 +13,9 @@ describe("User", function () {
         const ADMIN_ROLE = await userContract.ADMIN_ROLE();
         const CANDIDATE_ROLE = await userContract.CANDIDATE_ROLE();
         const RECRUITER_ROLE = await userContract.RECRUITER_ROLE();
-        const VERIFIER_ROLE = await userContract.VERIFIER_ROLE();
-        const ADMIN_RECRUITER_ROLE = await userContract.ADMIN_RECRUITER_ROLE();
+        const ADMIN_COMPANY_ROLE = await userContract.ADMIN_COMPANY_ROLE();
 
-        return { userContract, deployer, candidate, recruiter, verifier, admin_recruiter, admin, ADMIN_ROLE, CANDIDATE_ROLE, RECRUITER_ROLE, VERIFIER_ROLE, ADMIN_RECRUITER_ROLE };
+        return { userContract, deployer, candidate, recruiter, admin_company, admin, ADMIN_ROLE, CANDIDATE_ROLE, RECRUITER_ROLE, ADMIN_COMPANY_ROLE };
     }
 
     describe("Deployment", function () {
@@ -30,15 +29,14 @@ describe("User", function () {
 
     describe('Add user', () => {
         it("Should add user", async () => {
-            const { userContract, candidate, recruiter,verifier, admin_recruiter, CANDIDATE_ROLE, RECRUITER_ROLE, VERIFIER_ROLE, ADMIN_RECRUITER_ROLE } = await loadFixture(deployFixture);
+            const { userContract, candidate, recruiter, admin_company, CANDIDATE_ROLE, RECRUITER_ROLE, ADMIN_COMPANY_ROLE } = await loadFixture(deployFixture);
 
-            await userContract.addUser(candidate.address, 0);
-            await userContract.addUser(recruiter.address, 1);
-            await userContract.addUser(verifier.address, 2);
-            await userContract.addUser(admin_recruiter.address, 3);
+            await userContract.connect(candidate).addUser(candidate.address, 0);
+            await userContract.connect(recruiter).addUser(recruiter.address, 1);
+            await userContract.connect(admin_company).addUser(admin_company.address, 2);
 
             // console.log(await userContract.getAllUser());
-            expect((await userContract.getAllUser()).length).to.equal(4);
+            expect((await userContract.getAllUser()).length).to.equal(3);
 
             // console.log(await userContract.getAllCandidates());
             expect((await userContract.getAllCandidates()).length).to.equal(1);
@@ -46,16 +44,15 @@ describe("User", function () {
             // check access control
             expect(await userContract.hasRole(candidate.address, CANDIDATE_ROLE)).to.equal(true);
             expect(await userContract.hasRole(recruiter.address, RECRUITER_ROLE)).to.equal(true);
-            expect(await userContract.hasRole(verifier.address, VERIFIER_ROLE)).to.equal(true);
-            expect(await userContract.hasRole(admin_recruiter.address, ADMIN_RECRUITER_ROLE)).to.equal(true);
+            expect(await userContract.hasRole(admin_company.address, ADMIN_COMPANY_ROLE)).to.equal(true);
         });
 
         it("Should not add already user", async () => {
             const { userContract, candidate } = await loadFixture(deployFixture);
 
-            await userContract.addUser(candidate.address, 0);
+            await userContract.connect(candidate).addUser(candidate.address, 0);
 
-            await expect(userContract.addUser(candidate.address, 1)).to.revertedWithCustomError(userContract, "AlreadyExistedUser");
+            await expect(userContract.connect(candidate).addUser(candidate.address, 1)).to.revertedWithCustomError(userContract, "User__AlreadyExisted");
         })
 
         it("Should add admin", async () => {
@@ -66,12 +63,10 @@ describe("User", function () {
             expect(await userContract.hasRole(admin.address, ADMIN_ROLE)).to.equal(true);
         })
 
-        it("Should not add user for non-admin", async () => {
+        it("Should not add user for not self", async () => {
             const { userContract, candidate, recruiter } = await loadFixture(deployFixture);
 
-            await userContract.addUser(candidate.address, 0);
-
-            await expect(userContract.connect(candidate).addUser(recruiter.address, 1)).to.revertedWithCustomError(userContract, "User__NoRole");
+            await expect(userContract.connect(candidate).addUser(recruiter.address, 1)).to.revertedWithCustomError(userContract, "User__NotForSelf");
         })
     });
 
@@ -79,8 +74,8 @@ describe("User", function () {
         it("Should remove user", async () => {
             const { userContract, candidate, recruiter, CANDIDATE_ROLE } = await loadFixture(deployFixture);
 
-            await userContract.addUser(candidate.address, 0);
-            await userContract.addUser(recruiter.address, 1);
+            await userContract.connect(candidate).addUser(candidate.address, 0);
+            await userContract.connect(recruiter).addUser(recruiter.address, 1);
 
             expect((await userContract.getAllUser()).length).to.equal(2);
 
@@ -96,13 +91,13 @@ describe("User", function () {
         it("Should not remove user that not exist", async () => {
             const { userContract, candidate } = await loadFixture(deployFixture);
 
-            await expect(userContract.deleteUser(candidate.address)).to.be.revertedWithCustomError(userContract, "NotExistedUser");
+            await expect(userContract.deleteUser(candidate.address)).to.be.revertedWithCustomError(userContract, "User__NotExisted");
         });
 
         it("Should not remove user for non-admin", async () => {
             const { userContract, candidate } = await loadFixture(deployFixture);
 
-            await userContract.addUser(candidate.address, 0);
+            await userContract.connect(candidate).addUser(candidate.address, 0);
 
             await expect(userContract.connect(candidate).deleteUser(candidate.address)).to.be.revertedWithCustomError(userContract, "User__NoRole");
         });

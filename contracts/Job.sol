@@ -57,7 +57,7 @@ contract Job is IJob {
     error Recruiter_Company__NotIn(address recruiter_address, uint company_id);
 
     error Recruiter_Job__NotOwned(address recruiter_address, uint job_id);
-    error Recruiter_Job__ForSelf(
+    error Recruiter_Job__NotForSelf(
         address recruiter_address,
         address origin_address
     );
@@ -88,7 +88,7 @@ contract Job is IJob {
 
     modifier onlySelf(address account) {
         if (account != tx.origin) {
-            revert Recruiter_Job__ForSelf({
+            revert Recruiter_Job__NotForSelf({
                 recruiter_address: account,
                 origin_address: tx.origin
             });

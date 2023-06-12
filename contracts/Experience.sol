@@ -83,7 +83,7 @@ contract Experience is IExperience {
         uint experience_id,
         address user_address
     );
-    error Exp_User__ForSelf(address user_address, address origin_address);
+    error Exp_User__NotForSelf(address user_address, address origin_address);
 
     //=============================METHODS==========================================
     modifier onlyRole(bytes32 _role) {
@@ -95,7 +95,7 @@ contract Experience is IExperience {
 
     modifier onlySelf(address account) {
         if (account != tx.origin) {
-            revert Exp_User__ForSelf({
+            revert Exp_User__NotForSelf({
                 user_address: account,
                 origin_address: tx.origin
             });

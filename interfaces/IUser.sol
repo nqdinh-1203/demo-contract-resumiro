@@ -7,7 +7,7 @@ interface IUser {
         CANDIDATE,
         RECRUITER,
         // VERIFIER,
-        ADMIN_RECRUITER
+        ADMIN_COMPANY
     }
 
     struct AppUser {
